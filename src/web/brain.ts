@@ -126,7 +126,7 @@ export function createBrain(openConversation: (id: string) => Promise<void>) {
         }
         if(config.layout==='rings' || view==='command') {
           const a=index/total*Math.PI*2-Math.PI/2+phase;
-          const outer=base*(.80+(index%3)*.055); x=Math.cos(a)*outer; y=Math.sin(a)*outer;
+          const outer=base*(.76+(index%4)*.064); x=Math.cos(a)*outer; y=Math.sin(a)*outer;
           const mid=base*.47; const innerX=Math.cos(a)*mid,innerY=Math.sin(a)*mid; const c=color(groupIndex);
           ctx.beginPath();ctx.moveTo(innerX,innerY);ctx.lineTo(x,y);ctx.strokeStyle=c+'25';ctx.lineWidth=.65;ctx.stroke();
           const dots=Math.min(item.messageCount,48);
@@ -155,6 +155,11 @@ export function createBrain(openConversation: (id: string) => Promise<void>) {
       });
       if(config.grouping==='months' && list.length && config.layout==='rings' && grouped.length<=24) {const start=index-list.length;const a=(start+(list.length-1)/2)/total*Math.PI*2-Math.PI/2+phase;ctx.font='9px Consolas, monospace';ctx.fillStyle=color(groupIndex);ctx.textAlign='center';ctx.fillText(group.toLocaleUpperCase('ru-RU'),Math.cos(a)*base*.76,Math.sin(a)*base*.76);}
     });
+    if(view==='map' && config.layout==='circle' && clusterCount>1){
+      ctx.save();ctx.globalAlpha=.24;ctx.strokeStyle=palette[0]!;ctx.lineWidth=.65;
+      for(const center of clusterCenters){ctx.beginPath();ctx.moveTo(0,0);ctx.lineTo(center.x,center.y);ctx.stroke();}
+      ctx.restore();
+    }
     if(view==='command') {
       // Decorative central light, not an indication of stored facts.
       for(let n=0;n<160;n++){const a=n*2.39996;const r=Math.sqrt(n/160)*25;const x=Math.cos(a)*r,y=Math.sin(a)*r;ctx.fillStyle=n%5===0?'#65efd2aa':'#4bc7b077';ctx.fillRect(x,y,n%11===0?2:1,n%11===0?2:1);}
