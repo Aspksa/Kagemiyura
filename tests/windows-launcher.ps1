@@ -14,20 +14,31 @@ foreach ($item in (Get-ChildItem -LiteralPath $root -Force)) {
         Copy-Item -LiteralPath $item.FullName -Destination $testRoot -Recurse -Force
     }
 }
+# Windows PowerShell 5.1 rewrites quotes for native arguments; pass the exact
+# cmd.exe command line through ProcessStartInfo to preserve metacharacter paths.
+function Invoke-TestBat {
+    $info = New-Object Diagnostics.ProcessStartInfo
+    $info.FileName = $env:ComSpec
+    $info.Arguments = '/d /v:off /s /c ""%KAGEMIYURA_TEST_BAT%""'
+    $info.UseShellExecute = $false
+    $process = [Diagnostics.Process]::Start($info)
+    try {
+        $process.WaitForExit()
+        if ($process.ExitCode -ne 0) { throw ('BAT завершился с кодом ' + $process.ExitCode) }
+    } finally { $process.Dispose() }
+}
 try {
     $env:KAGEMIYURA_TEST_BAT = Join-Path $testRoot 'Kagemiyura.bat'
     $env:KAGEMIYURA_FORCE_PORTABLE = '1'
     $env:KAGEMIYURA_PREPARE_ONLY = '1'
     $env:KAGEMIYURA_NO_PAUSE = '1'
-    & $env:ComSpec /d /v:off /c '"%KAGEMIYURA_TEST_BAT%"'
-    if ($LASTEXITCODE -ne 0) { throw 'BAT: первый запуск завершился с ошибкой.' }
+    Invoke-TestBat
     foreach ($file in @('.runtime\node\node.exe', '.runtime\dependencies.sha256', 'dist\public\assets\app.js', 'dist\server\app.js')) {
         if (-not (Test-Path -LiteralPath (Join-Path $testRoot $file))) { throw ('Не создан файл: ' + $file) }
     }
     $stampFile = Join-Path $testRoot '.runtime\dependencies.sha256'
     $stampTime = [IO.File]::GetLastWriteTimeUtc($stampFile)
-    & $env:ComSpec /d /v:off /c '"%KAGEMIYURA_TEST_BAT%"'
-    if ($LASTEXITCODE -ne 0) { throw 'BAT: повторный запуск завершился с ошибкой.' }
+    Invoke-TestBat
     if ([IO.File]::GetLastWriteTimeUtc($stampFile) -ne $stampTime) { throw 'Повторный запуск переустановил неизменившиеся зависимости.' }
     Write-Host 'BAT проверен: переносной Node.js, SHA-256, зависимости, повторный запуск и сложный путь.'
 } finally {
