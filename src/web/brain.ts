@@ -516,6 +516,16 @@ export function createBrain(openConversation: (id: string) => Promise<void>) {
       items=more?[...items,...data.conversations]:data.conversations;hasMore=data.hasMore;list();draw();
     } catch { if(id===requestId) el('brain-status').textContent='Не удалось загрузить карту. Нажми «Обновить».'; }
   }
+  // Source passages are verbatim excerpts, not inferred or verified facts.
+  function messageEvidence(conversation:Conversation) {
+    const candidates=conversation.messages.map((message,index)=>({message,index}))
+      .filter(({message})=>message.status==='complete' && message.content.trim().length>=24)
+      .slice(0,100);
+    const relevant=candidates.filter(({message})=>/(?:важно|решили|запомни|настрой|используй|сохрани|требован|должен|нужно|remember|decision|requirement)/iu.test(message.content));
+    return (relevant.length?relevant:candidates).slice(0,5).map(({message,index})=>({
+      index:index+1,role:message.role,content:message.content.replace(/\s+/g,' ').trim().slice(0,240)
+    }));
+  }
   async function showDetails(item:ConversationSummary) {
     selected=item;const id=++detailId;el('brain-details-title').textContent=item.title;
     const related=titleLinks(items).filter(link=>link.from===item.id||link.to===item.id).slice(0,5).map(link=>{
@@ -548,7 +558,12 @@ export function createBrain(openConversation: (id: string) => Promise<void>) {
     }
     el('brain-details-preview').textContent='Загрузка…';if(!dialog.open)dialog.showModal();
     try {const response=await fetch(`/api/conversations/${item.id}`);if(!response.ok)throw Error();const c=await response.json() as Conversation;
-      if(id===detailId && dialog.open) el('brain-details-preview').textContent=(c.messages.slice(0,2).map(m=>`${m.role==='user'?'Ты':'Кагэмиюра'}: ${m.content}`).join('\n\n').slice(0,600) || 'В этом разговоре пока нет сообщений.');
+      if(id===detailId && dialog.open){
+        const preview=c.messages.slice(0,2).map(m=>`${m.role==='user'?'Ты':'Кагэмиюра'}: ${m.content}`).join('\n\n').slice(0,600) || 'В этом разговоре пока нет сообщений.';
+        const evidence=messageEvidence(c);
+        const excerpts=evidence.map(entry=>`Сообщение №${entry.index} (${entry.role==='user'?'пользователь':'ассистент'}): ${entry.content}`);
+        el('brain-details-preview').textContent=preview+(excerpts.length?`\n\nФрагменты из сохранённых сообщений (источники, не проверенные факты):\n${excerpts.join('\n\n')}`:'');
+      }
     } catch {if(id===detailId && dialog.open)el('brain-details-preview').textContent='Не удалось загрузить разговор.';}
   }
   canvas.addEventListener('pointerdown',event=>{if(event.button!==0)return;cameraMotion=undefined;drag={x:event.clientX,y:event.clientY,startX:event.clientX,startY:event.clientY,moved:false};canvas.setPointerCapture(event.pointerId);});
