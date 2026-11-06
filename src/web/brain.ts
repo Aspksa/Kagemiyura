@@ -96,6 +96,35 @@ export function createBrain(openConversation: (id: string) => Promise<void>) {
     if(view==='command'||config.layout==='rings'||config.layout==='circle')for (const ring of [.22,.27,.83,.89,.95,.98]) stroke(base*ring,0.10);
     // Decorative stars are background only, not data or inferred relationships.
     for(let i=0;i<90;i++){ const x=((i*137)%997)/997*width-width/2;const y=((i*293)%991)/991*height-height/2;const twinkle=.08+(Math.sin(i*2.3+phase*5)+1)*.045;ctx.fillStyle=`rgba(170,191,194,${twinkle})`;ctx.fillRect(x,y,i%9===0?2:1,i%9===0?2:1); }
+    // Procedural video-style energy: drawn in Canvas, never fetched from the network.
+    if(!reducedMotion.matches && config.speed>0){
+      ctx.save();
+      const pulse=(Math.sin(phase*95)+1)/2;
+      const aura=ctx.createRadialGradient(0,0,base*.02,0,0,base*.43);
+      aura.addColorStop(0,`rgba(65,211,198,${.085+pulse*.055})`);
+      aura.addColorStop(.45,'rgba(38,135,152,.045)');
+      aura.addColorStop(1,'rgba(14,59,82,0)');
+      ctx.fillStyle=aura;ctx.beginPath();ctx.arc(0,0,base*.43,0,Math.PI*2);ctx.fill();
+      for(let k=0;k<3;k++){
+        const r=base*(.25+k*.31);
+        const a=phase*(k%2?-.8:1.1)+k*2.094;
+        ctx.beginPath();ctx.arc(0,0,r,a,a+.30);
+        ctx.strokeStyle=`rgba(79,227,213,${.12+pulse*.14})`;
+        ctx.lineWidth=(2.2-k*.35)*config.lineWidth/100;
+        ctx.shadowColor='#4fe3d5';ctx.shadowBlur=9;ctx.stroke();ctx.shadowBlur=0;
+      }
+      ctx.restore();
+    }
+    // Fine radial ticks create the concentric instrument-panel appearance.
+    if(view==='map' && (config.layout==='rings'||config.layout==='hud')){
+      ctx.save();ctx.strokeStyle='rgba(74,200,195,.23)';ctx.lineWidth=.65;
+      for(let k=0;k<120;k++){
+        const a=k*Math.PI/60,inner=base*.95,outer=base*(k%10===0?1.01:.975);
+        ctx.beginPath();ctx.moveTo(Math.cos(a)*inner,Math.sin(a)*inner);
+        ctx.lineTo(Math.cos(a)*outer,Math.sin(a)*outer);ctx.stroke();
+      }
+      ctx.restore();
+    }
     const total=Math.max(items.length,1); let index=0;
     const clusterCount=Math.max(grouped.length,1);
     const clusterCenters=grouped.map((_,i)=>{
@@ -125,6 +154,16 @@ export function createBrain(openConversation: (id: string) => Promise<void>) {
           ctx.beginPath();ctx.arc(x,y,tile*.22,0,Math.PI*2);ctx.strokeStyle=c+'66';ctx.stroke();
           ctx.beginPath();ctx.arc(x,y,tile*.34,0,Math.PI*2);ctx.strokeStyle=c+'28';ctx.stroke();
           ctx.beginPath();ctx.arc(x,y,tile*.48,0,Math.PI*2);ctx.strokeStyle=c+'19';ctx.stroke();
+          // Animated hexagonal perimeter accents, kept subtle at normal zoom.
+          if(!reducedMotion.matches && config.speed>0){
+            const edge=Math.floor((phase*120+index*1.7)%6);
+            const a=Math.PI/3*edge-Math.PI/6,b=a+Math.PI/3;
+            ctx.save();ctx.beginPath();
+            ctx.moveTo(x+Math.cos(a)*tile,y+Math.sin(a)*tile);
+            ctx.lineTo(x+Math.cos(b)*tile,y+Math.sin(b)*tile);
+            ctx.strokeStyle=c+'bb';ctx.lineWidth=1.6*config.lineWidth/100;
+            ctx.shadowColor=c;ctx.shadowBlur=7;ctx.stroke();ctx.restore();
+          }
           for(let edge=0;edge<6;edge++){const a=Math.PI/3*edge-Math.PI/6;ctx.beginPath();ctx.moveTo(x+Math.cos(a)*tile*.74,y+Math.sin(a)*tile*.74);ctx.lineTo(x+Math.cos(a)*tile*.88,y+Math.sin(a)*tile*.88);ctx.strokeStyle=c+'aa';ctx.lineWidth=1.3;ctx.stroke();}
           const dots=Math.min(item.messageCount,48);for(let k=0;k<dots;k++){const a=k*2.39996,rad=Math.sqrt((k+1)/49)*tile*.72;ctx.fillStyle=c+(k%4===0?'cc':'66');ctx.fillRect(x+Math.cos(a)*rad,y+Math.sin(a)*rad,2,2);}
           ctx.beginPath();ctx.arc(x,y,3,0,Math.PI*2);ctx.fillStyle=c;ctx.shadowColor=c;ctx.shadowBlur=12;ctx.fill();ctx.shadowBlur=0;
