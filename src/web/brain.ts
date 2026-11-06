@@ -35,6 +35,7 @@ export function createBrain(openConversation: (id: string) => Promise<void>) {
   let width = 1; let height = 1; let scale = 1; let offsetX = 0; let offsetY = 0; let phase = 0; let last = 0; let frame = 0; let visible = false;
   let selected: ConversationSummary | undefined; let suppressClickUntil=0; let drag: { x:number; y:number; startX:number; startY:number; moved:boolean } | undefined;
   let view: 'command'|'map' = 'command'; let clock: ReturnType<typeof setInterval> | undefined;
+  let transition: { image: HTMLCanvasElement; started: number } | undefined;
   let forceKey = ''; let forcePoints: {x:number;y:number}[] = [];
   const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
   const color = (index: number) => palettes[config.theme][index % 5]!;
@@ -62,6 +63,7 @@ export function createBrain(openConversation: (id: string) => Promise<void>) {
     const rect = stage.getBoundingClientRect(); if (!rect.width || !rect.height) return;
     const ratio = Math.min(window.devicePixelRatio || 1, 2);
     if(canvas.width===Math.round(rect.width*ratio) && canvas.height===Math.round(rect.height*ratio)) return;
+    transition=undefined;
     width = rect.width; height = rect.height;
     canvas.width = Math.round(width * ratio); canvas.height = Math.round(height * ratio);
     canvas.style.width = `${width}px`; canvas.style.height = `${height}px`; ctx.setTransform(ratio,0,0,ratio,0,0);
@@ -213,8 +215,27 @@ export function createBrain(openConversation: (id: string) => Promise<void>) {
     ctx.beginPath();ctx.arc(0,0,34,0,Math.PI*2);ctx.strokeStyle=palette[0]+'44';ctx.lineWidth=1;ctx.stroke();
     ctx.font='italic 23px Georgia, serif';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillStyle=palette[0]!;ctx.fillText('К',0,1);ctx.textBaseline='alphabetic';ctx.font='9px Consolas, monospace';ctx.fillStyle='#91a7a8';ctx.fillText('КАГЭМИЮРА',0,51);}
     ctx.restore();
+    if(transition){
+      const progress=Math.min(1,(performance.now()-transition.started)/380);
+      if(progress>=1) transition=undefined;
+      else{
+        ctx.save();ctx.globalAlpha=(1-progress)*(1-progress);
+        ctx.drawImage(transition.image,0,0,width,height);ctx.restore();
+      }
+    }
   }
-  function animate(time:number) { if(!visible) return; if(!last || time-last>=33){if(last && !reducedMotion.matches && config.speed>0){phase += Math.min(time-last,100)*config.speed/100*0.00008;draw();} last=time;} frame=requestAnimationFrame(animate); }
+  function switchLayout(next:Layout){
+    if(config.layout===next)return;
+    if(visible && !reducedMotion.matches && canvas.width>0){
+      const snapshot=document.createElement('canvas');
+      snapshot.width=canvas.width;snapshot.height=canvas.height;
+      snapshot.getContext('2d')?.drawImage(canvas,0,0);
+      transition={image:snapshot,started:performance.now()};
+    }else transition=undefined;
+    config.layout=next;syncControls();draw();
+  }
+  function animate(time:number) { if(!visible) return; if(!last || time-last>=33){if(last && !reducedMotion.matches && config.speed>0)phase += Math.min(time-last,100)*config.speed/100*0.00008;
+    if(transition || (!reducedMotion.matches && config.speed>0))draw(); last=time;} frame=requestAnimationFrame(animate); }
   function list() {
     const box=el('brain-list'); box.replaceChildren();
     for(const item of items) {const b=document.createElement('button');b.textContent=item.title;b.title=item.title;b.addEventListener('click',()=>{void showDetails(item);});box.append(b);}
@@ -298,7 +319,7 @@ export function createBrain(openConversation: (id: string) => Promise<void>) {
   el('brain-plus').addEventListener('click',()=>{scale=Math.min(3,scale*1.2);draw();});el('brain-minus').addEventListener('click',()=>{scale=Math.max(.4,scale/1.2);draw();});
   el('brain-center').addEventListener('click',()=>{scale=1;offsetX=0;offsetY=0;draw();});
   el('brain-fit').addEventListener('click',()=>{scale=.85;offsetX=0;offsetY=0;draw();});
-  document.querySelectorAll<HTMLButtonElement>('[data-layout]').forEach(b=>b.addEventListener('click',()=>{config.layout=b.dataset.layout as Layout;syncControls();draw();}));
+  document.querySelectorAll<HTMLButtonElement>('[data-layout]').forEach(b=>b.addEventListener('click',()=>{switchLayout(b.dataset.layout as Layout);}));
   document.querySelectorAll<HTMLButtonElement>('[data-group]').forEach(b=>b.addEventListener('click',()=>{config.grouping=b.dataset.group as Grouping;syncControls();draw();}));
   document.querySelectorAll<HTMLButtonElement>('[data-theme]').forEach(b=>b.addEventListener('click',()=>{config.theme=b.dataset.theme as Theme;syncControls();draw();}));
   speed.addEventListener('input',()=>{config.speed=Number(speed.value);syncControls();});size.addEventListener('input',()=>{config.size=Number(size.value);syncControls();draw();});
