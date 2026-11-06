@@ -330,8 +330,40 @@ export function createBrain(openConversation: (id: string) => Promise<void>) {
       ctx.restore();
     }
     if(view==='command') {
-      // Decorative central light, not an indication of stored facts.
-      for(let n=0;n<160;n++){const a=n*2.39996;const r=Math.sqrt(n/160)*25;const x=Math.cos(a)*r,y=Math.sin(a)*r;ctx.fillStyle=n%5===0?'#65efd2aa':'#4bc7b077';ctx.fillRect(x,y,n%11===0?2:1,n%11===0?2:1);}
+      // Reference-inspired instrument core. Decorative rings do not imply facts.
+      ctx.save();
+      const coreRadius=Math.max(21,base*.115);
+      const motion=!reducedMotion.matches && config.speed>0;
+      const breathe=motion?.78+.22*Math.sin(phase*85):.85;
+      const glow=ctx.createRadialGradient(0,0,0,0,0,coreRadius*2.7);
+      glow.addColorStop(0,`rgba(92,235,216,${.18+.08*breathe})`);
+      glow.addColorStop(.35,'rgba(36,150,158,.075)');
+      glow.addColorStop(1,'rgba(36,150,158,0)');
+      ctx.fillStyle=glow;ctx.beginPath();ctx.arc(0,0,coreRadius*2.7,0,Math.PI*2);ctx.fill();
+      for(let ring=0;ring<4;ring++){
+        const radius=coreRadius*(.78+ring*.24);
+        ctx.beginPath();ctx.arc(0,0,radius,0,Math.PI*2);
+        ctx.strokeStyle=ring%2===0?'rgba(103,225,215,.27)':'rgba(133,177,187,.14)';
+        ctx.lineWidth=ring===0?1.1:.65;ctx.stroke();
+      }
+      for(let tick=0;tick<96;tick++){
+        const angle=tick*Math.PI/48;
+        const inner=coreRadius*(tick%8===0?1.31:1.40);
+        const outer=coreRadius*(tick%8===0?1.58:1.49);
+        ctx.beginPath();ctx.moveTo(Math.cos(angle)*inner,Math.sin(angle)*inner);
+        ctx.lineTo(Math.cos(angle)*outer,Math.sin(angle)*outer);
+        ctx.strokeStyle=tick%8===0?'rgba(101,231,216,.44)':'rgba(110,170,182,.17)';
+        ctx.lineWidth=tick%8===0?1:.55;ctx.stroke();
+      }
+      const count=200;
+      for(let n=0;n<count;n++){
+        const a=n*2.39996323+(motion?phase*(n%3===0?.2:-.12):0);
+        const r=Math.sqrt((n+.5)/count)*coreRadius*.68;
+        const x=Math.cos(a)*r,y=Math.sin(a)*r;
+        ctx.fillStyle=n%9===0?'rgba(178,255,235,.94)':n%3===0?'rgba(99,229,206,.72)':'rgba(69,169,176,.49)';
+        const dot=n%17===0?1.9:1.05;ctx.fillRect(x-dot/2,y-dot/2,dot,dot);
+      }
+      ctx.restore();
     } else if(config.layout==='rings'||config.layout==='circle'||items.length===0){ctx.beginPath();ctx.arc(0,0,29,0,Math.PI*2);ctx.fillStyle='#020a11';ctx.fill();ctx.strokeStyle=palette[0]!;ctx.lineWidth=1.3;ctx.stroke();
     ctx.beginPath();ctx.arc(0,0,34,0,Math.PI*2);ctx.strokeStyle=palette[0]+'44';ctx.lineWidth=1;ctx.stroke();
     ctx.font='italic 23px Georgia, serif';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillStyle=palette[0]!;ctx.fillText('К',0,1);ctx.textBaseline='alphabetic';ctx.font='9px Consolas, monospace';ctx.fillStyle='#91a7a8';ctx.fillText('КАГЭМИЮРА',0,51);}
