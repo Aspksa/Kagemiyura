@@ -34,6 +34,8 @@ try {
  assert.equal(await page.locator('#avatar .avatar-particle').count(),8);
  assert.equal(await page.locator('#avatar-preview-art .avatar-particle').count(),8);
  assert.equal(await page.locator('#avatar .avatar-particle svg').count(),8);
+ assert.equal(await page.locator('#avatar .avatar-particle').first().evaluate(node=>node.style.getPropertyValue('--spark-depth') !== ''),true,'Particle depth is configured');
+ assert.equal(await page.locator('#avatar .avatar-particle').nth(1).evaluate(node=>node.style.getPropertyValue('--spark-drift') !== ''),true,'Particle drift is configured');
  await page.getByRole('combobox',{name:'Вид частиц'}).selectOption('embers');
  assert.equal(await page.locator('#avatar').getAttribute('data-particles'),'embers');
  await page.getByRole('combobox',{name:'Вид частиц'}).selectOption('sakura');
