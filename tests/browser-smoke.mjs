@@ -99,6 +99,11 @@ try {
  assert.equal(await page.locator('[data-layout=rings]').getAttribute('aria-pressed'),'true');
  await page.locator('[data-layout=circle]').click();
  assert.equal(await page.locator('[data-layout=circle]').getAttribute('aria-pressed'),'true');
+ await page.locator('#brain-line-width').evaluate(node=>{node.value='170';node.dispatchEvent(new Event('input',{bubbles:true}));});
+ assert.equal(await page.locator('#brain-line-width-value').textContent(),'170%');
+ await page.locator('#brain-link-strength').evaluate(node=>{node.value='80';node.dispatchEvent(new Event('input',{bubbles:true}));});
+ assert.equal(await page.locator('#brain-link-strength-value').textContent(),'80%');
+ await page.locator('#brain-fit').click();
  await page.locator('[data-layout=hex]').click();
  await page.locator('#brain-size').evaluate(node=>{node.value='70';node.dispatchEvent(new Event('input',{bubbles:true}));});
  const smallHex=await page.locator('#brain-canvas').evaluate(node=>node.toDataURL());
