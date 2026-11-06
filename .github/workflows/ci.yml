@@ -27,6 +27,12 @@ jobs:
       - run: npm ci --ignore-scripts --no-audit --no-fund
       - run: npm run check
       - run: npm test
+      - name: Интерфейс в Chromium
+        if: runner.os == 'Linux'
+        run: |
+          npm install --no-save --package-lock=false --ignore-scripts --no-audit --no-fund playwright@1.62.1
+          npx --no-install playwright install --with-deps chromium
+          node tests/browser-smoke.mjs
       - name: BAT, переносной Node.js и сложный путь Windows
         if: runner.os == 'Windows'
         shell: powershell
@@ -35,5 +41,7 @@ jobs:
         if: failure()
         with:
           name: logs-${{ matrix.os }}
-          path: data/logs/
+          path: |
+            data/logs/
+            .runtime/ui-*.png
           if-no-files-found: ignore

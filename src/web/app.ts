@@ -64,8 +64,7 @@ document.addEventListener('click', event => {
   navigate();
 });
 window.addEventListener('popstate', navigate);
-navigate();
-void initialize();
+
 
 async function initialize() {
   send.disabled = true;
@@ -108,6 +107,7 @@ function showConversation(value: Conversation | undefined) {
 }
 
 async function openConversation(id: string) {
+  if (!ready) throw new Error('Дождись загрузки страницы.');
   if (controller) throw new Error('Сначала останови текущий ответ.');
   const value = await api<Conversation>(`/api/conversations/${id}`);
   if (controller) return;
@@ -156,15 +156,18 @@ element('rename-chat').addEventListener('click', event => {
     if (!conversation || controller) return;
     const title = prompt('Название разговора', conversation.title);
     if (title === null) return;
-    showConversation(await api<Conversation>(`/api/conversations/${conversation.id}`, { method: 'PATCH', body: JSON.stringify({ title }) }));
+    const id = conversation.id;
+    const saved = await api<Conversation>(`/api/conversations/${id}`, { method: 'PATCH', body: JSON.stringify({ title }) });
+    if (conversation?.id === id) showConversation(saved);
   });
 });
 element('delete-chat').addEventListener('click', event => {
   void runButton(event.currentTarget as HTMLButtonElement, async () => {
     if (!conversation || controller) return;
     if (!confirm(`Удалить разговор «${conversation.title}» с диска?`)) return;
-    await api(`/api/conversations/${conversation.id}`, { method: 'DELETE' });
-    showConversation(undefined);
+    const id = conversation.id;
+    await api(`/api/conversations/${id}`, { method: 'DELETE' });
+    if (conversation?.id === id) showConversation(undefined);
     notice('Разговор удалён.');
   });
 });
@@ -244,6 +247,7 @@ input.addEventListener('keydown', event => {
 });
 stop.addEventListener('click', () => controller?.abort());
 element('new-chat').addEventListener('click', () => {
+  if (!ready) return;
   if (controller) { notice('Сначала останови текущий ответ.'); return; }
   showConversation(undefined);
   input.value = '';
@@ -309,3 +313,6 @@ async function submit() {
     input.focus();
   }
 }
+
+navigate();
+void initialize();

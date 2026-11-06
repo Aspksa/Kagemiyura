@@ -51,7 +51,24 @@ try {
                 Write-Log ('Загрузка переносного Node.js {0} ({1})…' -f $config.version, $arch)
                 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
                 $partial = $zipFile + '.part'
-                Invoke-WebRequest -UseBasicParsing -Uri ('https://nodejs.org/dist/v{0}/{1}.zip' -f $config.version, $archiveName) -OutFile $partial -TimeoutSec 180
+                # Windows PowerShell's OutFile path handling interprets brackets.
+                # Stream through .NET file APIs so the portable path stays literal.
+                $download = [Net.HttpWebRequest]::Create(('https://nodejs.org/dist/v{0}/{1}.zip' -f $config.version, $archiveName))
+                $download.Timeout = 180000
+                $download.ReadWriteTimeout = 180000
+                $downloadResponse = $null
+                $downloadSource = $null
+                $downloadTarget = $null
+                try {
+                    $downloadResponse = $download.GetResponse()
+                    $downloadSource = $downloadResponse.GetResponseStream()
+                    $downloadTarget = [IO.File]::Create($partial)
+                    $downloadSource.CopyTo($downloadTarget)
+                } finally {
+                    if ($downloadTarget) { $downloadTarget.Dispose() }
+                    if ($downloadSource) { $downloadSource.Dispose() }
+                    if ($downloadResponse) { $downloadResponse.Dispose() }
+                }
                 if ((Get-FileHash -LiteralPath $partial -Algorithm SHA256).Hash.ToLowerInvariant() -ne $expected) {
                     [IO.File]::Delete($partial)
                     throw 'Контрольная сумма Node.js не совпала. Запуск остановлен; повторите загрузку.'
@@ -100,6 +117,7 @@ try {
 } catch {
     if ($null -ne $bootstrapLock) { $bootstrapLock.Dispose() }
     Write-Log ('Ошибка: ' + $_.Exception.Message)
+    Write-Log ('Строка подготовки: ' + $_.InvocationInfo.ScriptLineNumber)
     Write-Host 'Журнал: data\logs\launcher.log' -ForegroundColor Yellow
     exit 1
 }
