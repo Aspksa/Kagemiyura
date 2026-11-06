@@ -53,17 +53,27 @@ export function createBrain(openConversation: (id: string) => Promise<void>) {
     catch { el('brain-status').textContent='Не удалось сохранить настройки в браузере.'; }
   }
   function updateClock() { const now=new Date();el('command-time').textContent=now.toLocaleTimeString('ru-RU');el('command-date').textContent=now.toLocaleDateString('ru-RU',{weekday:'long',day:'numeric',month:'long',year:'numeric'}); }
+  function captureTransition() {
+    if(!visible || reducedMotion.matches || config.speed===0 || canvas.width===0)return;
+    const snapshot=document.createElement('canvas');
+    snapshot.width=canvas.width;snapshot.height=canvas.height;
+    snapshot.getContext('2d')?.drawImage(canvas,0,0);
+    transition={image:snapshot,started:performance.now()};
+  }
   function setView(next:'command'|'map') {
+    if(view===next)return;
+    captureTransition();
     view=next;el('brain-page').dataset.view=view;el('brain-view-title').textContent=view==='command'?'Команда':'Второй мозг';
     el('brain-command-view').setAttribute('aria-pressed',String(view==='command'));el('brain-map-view').setAttribute('aria-pressed',String(view==='map'));
     if(view==='command' && search.value.trim()){search.value='';void load();}
-    requestAnimationFrame(()=>{if(visible)resize();});
+    requestAnimationFrame(()=>{if(visible){resize();draw();}});
   }
   function resize() {
     const rect = stage.getBoundingClientRect(); if (!rect.width || !rect.height) return;
     const ratio = Math.min(window.devicePixelRatio || 1, 2);
     if(canvas.width===Math.round(rect.width*ratio) && canvas.height===Math.round(rect.height*ratio)) return;
-    transition=undefined;
+    // Preserve a transition snapshot across view-dependent canvas resizing.
+    if(transition && transition.image.width===0)transition=undefined;
     width = rect.width; height = rect.height;
     canvas.width = Math.round(width * ratio); canvas.height = Math.round(height * ratio);
     canvas.style.width = `${width}px`; canvas.style.height = `${height}px`; ctx.setTransform(ratio,0,0,ratio,0,0);
@@ -379,12 +389,8 @@ export function createBrain(openConversation: (id: string) => Promise<void>) {
   }
   function switchLayout(next:Layout){
     if(config.layout===next)return;
-    if(visible && !reducedMotion.matches && canvas.width>0){
-      const snapshot=document.createElement('canvas');
-      snapshot.width=canvas.width;snapshot.height=canvas.height;
-      snapshot.getContext('2d')?.drawImage(canvas,0,0);
-      transition={image:snapshot,started:performance.now()};
-    }else transition=undefined;
+    transition=undefined;
+    captureTransition();
     config.layout=next;syncControls();draw();
   }
   function animate(time:number) { if(!visible) return; if(!last || time-last>=33){if(last && !reducedMotion.matches && config.speed>0)phase += Math.min(time-last,100)*config.speed/100*0.00008;
