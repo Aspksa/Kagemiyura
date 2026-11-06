@@ -94,6 +94,15 @@ try {
  const smallHex=await page.locator('#brain-canvas').evaluate(node=>node.toDataURL());
  await page.locator('#brain-size').evaluate(node=>{node.value='150';node.dispatchEvent(new Event('input',{bubbles:true}));});
  assert.notEqual(await page.locator('#brain-canvas').evaluate(node=>node.toDataURL()),smallHex);
+ await page.locator('#brain-canvas').focus();
+ const beforeKeyboardPan=await page.locator('#brain-canvas').evaluate(node=>node.toDataURL());
+ await page.keyboard.press('ArrowRight');
+ assert.notEqual(await page.locator('#brain-canvas').evaluate(node=>node.toDataURL()),beforeKeyboardPan,'Arrow keys pan the memory map');
+ await page.keyboard.press('0');
+ await page.keyboard.press('+');
+ const afterKeyboardZoom=await page.locator('#brain-canvas').evaluate(node=>node.toDataURL());
+ await page.keyboard.press('0');
+ assert.notEqual(await page.locator('#brain-canvas').evaluate(node=>node.toDataURL()),afterKeyboardZoom,'Keyboard zoom and reset change the map');
  await page.locator('[data-theme=ocean]').click();
  await page.locator('#brain-save').click();
  await page.reload();
