@@ -155,6 +155,14 @@ export function createBrain(openConversation: (id: string) => Promise<void>) {
       return {x:Math.cos(a)*orbit,y:Math.sin(a)*orbit};
     });
     if(view==='map' && config.layout==='circle'){
+      // Faint inter-island structure, visible without suggesting semantic relationships.
+      ctx.save();ctx.lineWidth=.45*config.lineWidth/100;
+      for(let i=1;i<clusterCenters.length;i++){
+        const from=clusterCenters[i-1]!,to=clusterCenters[i]!;
+        ctx.beginPath();ctx.moveTo(from.x,from.y);ctx.lineTo(to.x,to.y);
+        ctx.strokeStyle='rgba(89,158,162,.12)';ctx.setLineDash([2,7]);ctx.stroke();
+      }
+      ctx.setLineDash([]);ctx.restore();
       grouped.forEach(([name,list],i)=>{
         const center=clusterCenters[i]!;
         // The reference uses square-pixel constellations, not large circular bubbles.
