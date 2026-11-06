@@ -2,11 +2,11 @@ import type { Conversation, ConversationSummary } from '../shared/types.js';
 
 type Layout = 'rings' | 'circle' | 'hex' | 'grid' | 'force' | 'hud';
 type Grouping = 'months' | 'all';
-type Theme = 'gold' | 'ocean' | 'violet';
-type BrainSettings = { layout: Layout; grouping: Grouping; theme: Theme; speed: number; size: number; labels: boolean };
+type Theme = 'gold' | 'ocean' | 'violet' | 'ruby' | 'neon' | 'paper';
+type BrainSettings = { layout: Layout; grouping: Grouping; theme: Theme; speed: number; force: number; size: number; labels: boolean; expanded: boolean };
 type Point = { item: ConversationSummary; x: number; y: number; radius: number; color: string };
-const defaults: BrainSettings = { layout:'rings', grouping:'months', theme:'ocean', speed:20, size:100, labels:true };
-const palettes: Record<Theme, string[]> = { gold:['#d9bd7e','#e7d8a3','#b49b67','#f0cb8c','#a68b60'], ocean:['#45d0c4','#80bff1','#75e0b3','#8998e8','#aecfe7'], violet:['#bf9ceb','#edbad0','#a2baf1','#dab1e5','#dfc597'] };
+const defaults: BrainSettings = { layout:'rings', grouping:'months', theme:'ocean', speed:20, force:50, size:100, labels:true, expanded:true };
+const palettes: Record<Theme, string[]> = { gold:['#d9bd7e','#e7d8a3','#b49b67','#f0cb8c','#a68b60'], ocean:['#45d0c4','#80bff1','#75e0b3','#8998e8','#aecfe7'], violet:['#bf9ceb','#edbad0','#a2baf1','#dab1e5','#dfc597'], ruby:['#ff8568','#f1bb68','#eb80bb','#eea4a8','#e9ccad'], neon:['#d4ff40','#ff4fd2','#22e8f0','#b56afa','#ffad3d'], paper:['#16675e','#62469d','#965439','#235b91','#676b47'] };
 function el<T extends HTMLElement>(id: string): T { const node = document.getElementById(id); if (!node) throw Error(`Missing ${id}`); return node as T; }
 function settings(): BrainSettings {
   const value = {...defaults};
@@ -14,10 +14,12 @@ function settings(): BrainSettings {
     const saved = JSON.parse(localStorage.getItem('kagemiyura-brain-v1') ?? '{}') as Partial<BrainSettings>;
     if (saved.layout && ['rings','circle','hex','grid','force','hud'].includes(saved.layout)) value.layout = saved.layout;
     if (saved.grouping && ['months','all'].includes(saved.grouping)) value.grouping = saved.grouping;
-    if (saved.theme && ['gold','ocean','violet'].includes(saved.theme)) value.theme = saved.theme;
+    if (saved.theme && ['gold','ocean','violet','ruby','neon','paper'].includes(saved.theme)) value.theme = saved.theme;
     if (typeof saved.speed === 'number' && Number.isFinite(saved.speed)) value.speed = Math.max(0, Math.min(100, saved.speed));
     if (typeof saved.size === 'number' && Number.isFinite(saved.size)) value.size = Math.max(70, Math.min(150, saved.size));
+    if (typeof saved.force === 'number' && Number.isFinite(saved.force)) value.force = Math.max(0, Math.min(100, saved.force));
     if (typeof saved.labels === 'boolean') value.labels = saved.labels;
+    if (typeof saved.expanded === 'boolean') value.expanded = saved.expanded;
   } catch { /* storage may be unavailable */ }
   return value;
 }
@@ -26,21 +28,24 @@ export function createBrain(openConversation: (id: string) => Promise<void>) {
   if (!context) throw Error('Canvas недоступен');
   const ctx: CanvasRenderingContext2D = context;
   const stage = canvas.parentElement!; const search = el<HTMLInputElement>('brain-search');
-  const speed = el<HTMLInputElement>('brain-speed'); const size = el<HTMLInputElement>('brain-size'); const labels = el<HTMLInputElement>('brain-labels');
+  const speed = el<HTMLInputElement>('brain-speed'); const size = el<HTMLInputElement>('brain-size'); const force = el<HTMLInputElement>('brain-force'); const labels = el<HTMLInputElement>('brain-labels');
   const dialog = el<HTMLDialogElement>('brain-details');
   let config = settings(); let items: ConversationSummary[] = []; let points: Point[] = []; let hasMore = false; let requestId = 0; let detailId = 0;
   let width = 1; let height = 1; let scale = 1; let offsetX = 0; let offsetY = 0; let phase = 0; let last = 0; let frame = 0; let visible = false;
+  let targetScale = 1; let targetX = 0; let targetY = 0; let hovered: Point | undefined;
   let selected: ConversationSummary | undefined; let drag: { x:number; y:number; startX:number; startY:number; moved:boolean } | undefined;
   let view: 'command'|'map' = 'command'; let clock: ReturnType<typeof setInterval> | undefined;
   let forceKey = ''; let forcePoints: {x:number;y:number}[] = [];
   const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
   const color = (index: number) => palettes[config.theme][index % 5]!;
   function syncControls() {
-    speed.value = String(config.speed); size.value = String(config.size); labels.checked = config.labels;
+    speed.value = String(config.speed); size.value = String(config.size); force.value=String(config.force); labels.checked = config.labels;
     el('brain-speed-value').textContent = `${config.speed}%`; el('brain-size-value').textContent = `${config.size}%`;
+    el('brain-force-value').textContent=`${config.force}%`;
     document.querySelectorAll<HTMLButtonElement>('[data-layout]').forEach(b=>{ const on=b.dataset.layout===config.layout; b.classList.toggle('active',on); b.setAttribute('aria-pressed',String(on)); });
     document.querySelectorAll<HTMLButtonElement>('[data-group]').forEach(b=>{ const on=b.dataset.group===config.grouping; b.classList.toggle('active',on); b.setAttribute('aria-pressed',String(on)); });
     document.querySelectorAll<HTMLButtonElement>('[data-theme]').forEach(b=>{ const on=b.dataset.theme===config.theme; b.classList.toggle('active',on); b.setAttribute('aria-pressed',String(on)); });
+    el('brain-expand').setAttribute('aria-pressed',String(config.expanded));el('brain-collapse').setAttribute('aria-pressed',String(!config.expanded));
   }
   function save() {
     try { localStorage.setItem('kagemiyura-brain-v1', JSON.stringify(config)); el('brain-status').textContent='Настройки карты сохранены.'; }
@@ -48,6 +53,7 @@ export function createBrain(openConversation: (id: string) => Promise<void>) {
   }
   function updateClock() { const now=new Date();el('command-time').textContent=now.toLocaleTimeString('ru-RU');el('command-date').textContent=now.toLocaleDateString('ru-RU',{weekday:'long',day:'numeric',month:'long',year:'numeric'}); }
   function setView(next:'command'|'map') {
+    hovered=undefined;el('brain-tooltip').hidden=true;
     view=next;el('brain-page').dataset.view=view;el('brain-view-title').textContent=view==='command'?'Команда':'Второй мозг';
     el('brain-command-view').setAttribute('aria-pressed',String(view==='command'));el('brain-map-view').setAttribute('aria-pressed',String(view==='map'));
     if(view==='command' && search.value.trim()){search.value='';void load();}
@@ -69,22 +75,23 @@ export function createBrain(openConversation: (id: string) => Promise<void>) {
     return [...result.entries()];
   }
   function forceLayout(total:number, base:number) {
-    const key=`${items.map(item=>item.id).join(',')}:${Math.round(base)}`;if(key===forceKey)return forcePoints;
+    const key=`${items.map(item=>item.id).join(',')}:${Math.round(base)}:${config.force}`;if(key===forceKey)return forcePoints;
     forceKey=key;forcePoints=Array.from({length:total},(_,i)=>{const a=i*2.39996,r=Math.sqrt((i+1)/total)*base*.72;return {x:Math.cos(a)*r,y:Math.sin(a)*r};});
     // A bounded, local repulsion layout; proximity is not a semantic relation.
     if(total<=150)for(let iteration=0;iteration<35;iteration++)for(let i=0;i<total;i++){
       const p=forcePoints[i]!;let fx=-p.x*.002,fy=-p.y*.002;
-      for(let j=i+1;j<total;j++){const q=forcePoints[j]!,dx=p.x-q.x,dy=p.y-q.y,d2=Math.max(dx*dx+dy*dy,100);if(d2>10000)continue;const push=65/d2;fx+=dx*push;fy+=dy*push;q.x-=dx*push;q.y-=dy*push;}
+      for(let j=i+1;j<total;j++){const q=forcePoints[j]!,dx=p.x-q.x,dy=p.y-q.y,d2=Math.max(dx*dx+dy*dy,100);if(d2>10000)continue;const push=(15+config.force)/d2;fx+=dx*push;fy+=dy*push;q.x-=dx*push;q.y-=dy*push;}
       p.x+=Math.max(-4,Math.min(4,fx));p.y+=Math.max(-4,Math.min(4,fy));
     }
     return forcePoints;
   }
   function draw() {
     if (!visible || width < 2) return;
-    ctx.clearRect(0,0,width,height); ctx.fillStyle='#020d19'; ctx.fillRect(0,0,width,height);
+    canvas.dataset.zoom=scale.toFixed(3);
+    ctx.clearRect(0,0,width,height); ctx.fillStyle=config.theme==='paper'?'#f0f0ec':'#020d19'; ctx.fillRect(0,0,width,height);
     ctx.save(); ctx.translate(width/2+offsetX,height/2+offsetY); ctx.scale(scale,scale);
     const base = Math.max(100, Math.min(width,height)*(view==='command'?.34:.43)); const palette=palettes[config.theme]; const grouped=groups(); points=[];
-    const stroke=(radius:number, alpha:number) => {ctx.beginPath();ctx.arc(0,0,radius,0,Math.PI*2);ctx.strokeStyle=`rgba(164,186,183,${alpha})`;ctx.lineWidth=0.8;ctx.stroke();};
+    const stroke=(radius:number, alpha:number) => {ctx.beginPath();ctx.arc(0,0,radius,0,Math.PI*2);ctx.strokeStyle=config.theme==='paper'?`rgba(38,70,70,${alpha+.08})`:`rgba(164,186,183,${alpha})`;ctx.lineWidth=0.8;ctx.stroke();};
     if(view==='command'||config.layout==='rings'||config.layout==='circle')for (const ring of [.22,.27,.83,.89,.95,.98]) stroke(base*ring,0.10);
     // Decorative stars are background only, not data or inferred relationships.
     for(let i=0;i<90;i++){ const x=((i*137)%997)/997*width-width/2;const y=((i*293)%991)/991*height-height/2;ctx.fillStyle='rgba(170,191,194,.12)';ctx.fillRect(x,y,i%9===0?2:1,i%9===0?2:1); }
@@ -98,7 +105,7 @@ export function createBrain(openConversation: (id: string) => Promise<void>) {
           x=(index%cols-(cols-1)/2+(row%2)*.48)*step;y=(row-(rows-1)/2)*step*.86;
           const c=color(groupIndex);ctx.beginPath();for(let j=0;j<6;j++){const a=Math.PI/3*j-Math.PI/6,px=x+Math.cos(a)*tile,py=y+Math.sin(a)*tile;j===0?ctx.moveTo(px,py):ctx.lineTo(px,py);}ctx.closePath();ctx.fillStyle=c+'0b';ctx.fill();ctx.strokeStyle=c+'55';ctx.lineWidth=.8;ctx.stroke();
           ctx.beginPath();ctx.arc(x,y,tile*.22,0,Math.PI*2);ctx.strokeStyle=c+'66';ctx.stroke();
-          const dots=Math.min(item.messageCount,48);for(let k=0;k<dots;k++){const a=k*2.39996,rad=Math.sqrt((k+1)/49)*tile*.72;ctx.fillStyle=c+(k%4===0?'cc':'66');ctx.fillRect(x+Math.cos(a)*rad,y+Math.sin(a)*rad,2,2);}
+          const dots=config.expanded?Math.min(item.messageCount,48):0;for(let k=0;k<dots;k++){const a=k*2.39996,rad=Math.sqrt((k+1)/49)*tile*.72;ctx.fillStyle=c+(k%4===0?'cc':'66');ctx.fillRect(x+Math.cos(a)*rad,y+Math.sin(a)*rad,2,2);}
           ctx.beginPath();ctx.arc(x,y,3,0,Math.PI*2);ctx.fillStyle=c;ctx.fill();
           if(config.labels){ctx.font='bold 9px Consolas, monospace';ctx.fillStyle=c;ctx.textAlign='center';ctx.fillText(item.title.length>22?item.title.slice(0,21)+'…':item.title,x,y-tile*.45,Math.max(20,tile*1.45));}
           points.push({item,x,y,radius:tile*.48,color:c});index++;return;
@@ -108,7 +115,7 @@ export function createBrain(openConversation: (id: string) => Promise<void>) {
           const outer=base*.88; x=Math.cos(a)*outer; y=Math.sin(a)*outer;
           const mid=base*.47; const innerX=Math.cos(a)*mid,innerY=Math.sin(a)*mid; const c=color(groupIndex);
           ctx.beginPath();ctx.moveTo(innerX,innerY);ctx.lineTo(x,y);ctx.strokeStyle=c+'25';ctx.lineWidth=.65;ctx.stroke();
-          const dots=Math.min(item.messageCount,48);
+          const dots=config.expanded?Math.min(item.messageCount,48):0;
           for(let k=0;k<dots;k++) {const row=Math.floor(k/6),col=k%6;const radius=base*(.32+row*.023);const delta=(col-2.5)*Math.min(.018,1.4/total);const px=Math.cos(a+delta)*radius,py=Math.sin(a+delta)*radius;
             ctx.fillStyle=c+(k%7===0?'cc':'66');ctx.fillRect(px-1.1,py-1.1,2.2,2.2);
           }
@@ -129,10 +136,22 @@ export function createBrain(openConversation: (id: string) => Promise<void>) {
         ctx.beginPath();ctx.arc(x,y,radius*1.45,0,Math.PI*2);ctx.strokeStyle=c+'aa';ctx.lineWidth=.8;ctx.fillStyle='#04111b';ctx.fill();ctx.stroke();
         if(config.layout==='rings'||view==='command'){ctx.strokeStyle=c;ctx.lineWidth=.8;ctx.strokeRect(x-3,y-2.5,6,4.5);ctx.beginPath();ctx.moveTo(x-1,y+2);ctx.lineTo(x-2,y+4);ctx.stroke();}
         else {ctx.beginPath();ctx.arc(x,y,radius*.7,0,Math.PI*2);ctx.fillStyle=c;ctx.shadowColor=c;ctx.shadowBlur=8;ctx.fill();ctx.shadowBlur=0;}
-        if(config.labels && total<=70 && config.layout!=='rings' && view==='map'){ctx.font='10px Consolas, monospace';ctx.fillStyle='#c6c9c7';ctx.textAlign='center';ctx.fillText(item.title.length>24?item.title.slice(0,23)+'…':item.title,x,y+radius+15);}
+        if(config.labels && total<=70 && config.layout!=='rings' && view==='map'){ctx.font='10px Consolas, monospace';ctx.fillStyle=config.theme==='paper'?'#263e3d':'#c6c9c7';ctx.textAlign='center';ctx.fillText(item.title.length>24?item.title.slice(0,23)+'…':item.title,x,y+radius+15);}
       });
       if(config.grouping==='months' && list.length && config.layout==='rings' && grouped.length<=24) {const start=index-list.length;const a=(start+(list.length-1)/2)/total*Math.PI*2-Math.PI/2+phase;ctx.font='9px Consolas, monospace';ctx.fillStyle=color(groupIndex);ctx.textAlign='center';ctx.fillText(group.toLocaleUpperCase('ru-RU'),Math.cos(a)*base*.76,Math.sin(a)*base*.76);}
     });
+    canvas.dataset.highlighted='0';
+    if(hovered && view==='map'){
+      const candidates=points.filter(p=>p.item.id===hovered!.item.id);
+      const anchor=candidates.reduce<Point|undefined>((best,p)=>!best||Math.hypot(p.x-hovered!.x,p.y-hovered!.y)<Math.hypot(best.x-hovered!.x,best.y-hovered!.y)?p:best,undefined);
+      if(anchor){hovered=anchor;const seen=new Set<string>();let count=0;
+        for(const p of points){if(p.item.id===anchor.item.id||seen.has(p.item.id)||monthKey(p.item)!==monthKey(anchor.item))continue;seen.add(p.item.id);count++;
+          ctx.beginPath();ctx.moveTo(anchor.x,anchor.y);ctx.lineTo(p.x,p.y);ctx.strokeStyle=anchor.color+'aa';ctx.lineWidth=1;ctx.stroke();
+          ctx.beginPath();ctx.arc(p.x,p.y,Math.max(5,p.radius+3),0,Math.PI*2);ctx.strokeStyle=anchor.color;ctx.stroke();}
+        ctx.beginPath();ctx.arc(anchor.x,anchor.y,Math.max(9,anchor.radius+5),0,Math.PI*2);ctx.strokeStyle=anchor.color;ctx.lineWidth=1.4;ctx.stroke();
+        canvas.dataset.highlighted=String(count);
+      }else hovered=undefined;
+    }
     if(view==='command') {
       // Decorative central light, not an indication of stored facts.
       for(let n=0;n<160;n++){const a=n*2.39996;const r=Math.sqrt(n/160)*25;const x=Math.cos(a)*r,y=Math.sin(a)*r;ctx.fillStyle=n%5===0?'#65efd2aa':'#4bc7b077';ctx.fillRect(x,y,n%11===0?2:1,n%11===0?2:1);}
@@ -141,7 +160,11 @@ export function createBrain(openConversation: (id: string) => Promise<void>) {
     ctx.font='italic 23px Georgia, serif';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillStyle=palette[0]!;ctx.fillText('К',0,1);ctx.textBaseline='alphabetic';ctx.font='9px Consolas, monospace';ctx.fillStyle='#91a7a8';ctx.fillText('КАГЭМИЮРА',0,51);}
     ctx.restore();
   }
-  function animate(time:number) { if(!visible) return; if(!last || time-last>=33){if(last && !reducedMotion.matches && config.speed>0){phase += Math.min(time-last,100)*config.speed/100*0.00008;draw();} last=time;} frame=requestAnimationFrame(animate); }
+  function animate(time:number) { if(!visible) return; if(!last || time-last>=33){let changed=false;if(last && !reducedMotion.matches && config.speed>0){phase += Math.min(time-last,100)*config.speed/100*0.00008;changed=true;}
+    if(Math.abs(scale-targetScale)>.0001||Math.abs(offsetX-targetX)>.05||Math.abs(offsetY-targetY)>.05){const k=reducedMotion.matches?1:.24;scale+=(targetScale-scale)*k;offsetX+=(targetX-offsetX)*k;offsetY+=(targetY-offsetY)*k;changed=true;}
+    if(changed)draw();last=time;} frame=requestAnimationFrame(animate); }
+  function zoom(factor:number,px=width/2,py=height/2){const next=Math.max(.4,Math.min(3,targetScale*factor));const ratio=next/targetScale;targetX=px-width/2-(px-width/2-targetX)*ratio;targetY=py-height/2-(py-height/2-targetY)*ratio;targetScale=next;if(reducedMotion.matches){scale=targetScale;offsetX=targetX;offsetY=targetY;draw();}}
+  function resetView(){targetScale=1;targetX=0;targetY=0;if(reducedMotion.matches){scale=1;offsetX=0;offsetY=0;draw();}}
   function list() {
     const box=el('brain-list'); box.replaceChildren();
     for(const item of items) {const b=document.createElement('button');b.textContent=item.title;b.title=item.title;b.addEventListener('click',()=>{void showDetails(item);});box.append(b);}
@@ -165,7 +188,7 @@ export function createBrain(openConversation: (id: string) => Promise<void>) {
       const response=await fetch(`/api/conversations?q=${encodeURIComponent(search.value.trim())}&offset=${offset}`);
       if(!response.ok) throw Error('Не удалось загрузить разговоры.');
       const data=await response.json() as { conversations: ConversationSummary[]; hasMore:boolean };if(id!==requestId)return;
-      items=more?[...items,...data.conversations]:data.conversations;hasMore=data.hasMore;list();draw();
+      items=more?[...items,...data.conversations]:data.conversations;hasMore=data.hasMore;hovered=undefined;el('brain-tooltip').hidden=true;list();draw();
     } catch { if(id===requestId) el('brain-status').textContent='Не удалось загрузить карту. Нажми «Обновить».'; }
   }
   async function showDetails(item:ConversationSummary) {
@@ -176,23 +199,25 @@ export function createBrain(openConversation: (id: string) => Promise<void>) {
       if(id===detailId && dialog.open) el('brain-details-preview').textContent=c.messages.slice(0,2).map(m=>`${m.role==='user'?'Ты':'Кагэмиюра'}: ${m.content}`).join('\n\n').slice(0,600) || 'В этом разговоре пока нет сообщений.';
     } catch {if(id===detailId && dialog.open)el('brain-details-preview').textContent='Не удалось загрузить разговор.';}
   }
-  canvas.addEventListener('pointerdown',event=>{if(event.button!==0)return;drag={x:event.clientX,y:event.clientY,startX:event.clientX,startY:event.clientY,moved:false};canvas.setPointerCapture(event.pointerId);});
+  canvas.addEventListener('pointerdown',event=>{if(event.button!==0)return;targetScale=scale;targetX=offsetX;targetY=offsetY;drag={x:event.clientX,y:event.clientY,startX:event.clientX,startY:event.clientY,moved:false};canvas.setPointerCapture(event.pointerId);});
   canvas.addEventListener('pointermove',event=>{
     const tip=el('brain-tooltip');
-    if(!drag){const rect=canvas.getBoundingClientRect();const px=event.clientX-rect.left,py=event.clientY-rect.top;const x=(px-width/2-offsetX)/scale,y=(py-height/2-offsetY)/scale;const hit=[...points].reverse().find(p=>Math.hypot(p.x-x,p.y-y)<Math.max(p.radius*2,12/scale));tip.hidden=!hit;if(hit){tip.textContent=`${hit.item.title} · Сообщений: ${hit.item.messageCount}`;tip.style.left=`${Math.max(8,Math.min(width-210,px+14))}px`;tip.style.top=`${Math.max(8,Math.min(height-55,py+14))}px`;}return;}
-    tip.hidden=true;const dx=event.clientX-drag.x,dy=event.clientY-drag.y;if(Math.hypot(event.clientX-drag.startX,event.clientY-drag.startY)>4)drag.moved=true;offsetX+=dx;offsetY+=dy;drag.x=event.clientX;drag.y=event.clientY;draw();
+    if(!drag){const rect=canvas.getBoundingClientRect();const px=event.clientX-rect.left,py=event.clientY-rect.top;const x=(px-width/2-offsetX)/scale,y=(py-height/2-offsetY)/scale;const hit=[...points].reverse().find(p=>Math.hypot(p.x-x,p.y-y)<Math.max(p.radius*2,12/scale));hovered=hit;tip.hidden=!hit;if(hit){tip.textContent=`${hit.item.title} · Сообщений: ${hit.item.messageCount} · Группа: ${monthKey(hit.item)} (по дате)`;tip.style.left=`${Math.max(8,Math.min(width-210,px+14))}px`;tip.style.top=`${Math.max(8,Math.min(height-70,py+14))}px`;}draw();return;}
+    tip.hidden=true;hovered=undefined;const dx=event.clientX-drag.x,dy=event.clientY-drag.y;if(Math.hypot(event.clientX-drag.startX,event.clientY-drag.startY)>4)drag.moved=true;offsetX+=dx;offsetY+=dy;targetX=offsetX;targetY=offsetY;drag.x=event.clientX;drag.y=event.clientY;draw();
   });
-  canvas.addEventListener('pointerleave',()=>{el('brain-tooltip').hidden=true;});
+  canvas.addEventListener('pointerleave',()=>{el('brain-tooltip').hidden=true;hovered=undefined;draw();});
   canvas.addEventListener('pointerup',event=>{if(!drag)return;if(!drag.moved){const rect=canvas.getBoundingClientRect();const x=(event.clientX-rect.left-width/2-offsetX)/scale,y=(event.clientY-rect.top-height/2-offsetY)/scale;const hit=[...points].reverse().find(p=>Math.hypot(p.x-x,p.y-y)<Math.max(p.radius*2,12/scale));if(hit)void showDetails(hit.item);}drag=undefined;});
   canvas.addEventListener('pointercancel',()=>{drag=undefined;});
-  canvas.addEventListener('wheel',event=>{event.preventDefault();scale=Math.max(.4,Math.min(3,scale*(event.deltaY<0?1.12:.89)));draw();},{passive:false});
+  canvas.addEventListener('wheel',event=>{event.preventDefault();const rect=canvas.getBoundingClientRect();zoom(event.deltaY<0?1.12:.89,event.clientX-rect.left,event.clientY-rect.top);},{passive:false});
   el<HTMLButtonElement>('brain-panel-toggle').addEventListener('click',event=>{const button=event.currentTarget as HTMLButtonElement;const panel=document.querySelector<HTMLElement>('.brain-panel')!;panel.hidden=!panel.hidden;button.setAttribute('aria-expanded',String(!panel.hidden));button.setAttribute('aria-label',panel.hidden?'Показать настройки карты':'Скрыть настройки карты');requestAnimationFrame(resize);});
-  el('brain-plus').addEventListener('click',()=>{scale=Math.min(3,scale*1.2);draw();});el('brain-minus').addEventListener('click',()=>{scale=Math.max(.4,scale/1.2);draw();});
-  el('brain-center').addEventListener('click',()=>{scale=1;offsetX=0;offsetY=0;draw();});
-  document.querySelectorAll<HTMLButtonElement>('[data-layout]').forEach(b=>b.addEventListener('click',()=>{config.layout=b.dataset.layout as Layout;syncControls();draw();}));
-  document.querySelectorAll<HTMLButtonElement>('[data-group]').forEach(b=>b.addEventListener('click',()=>{config.grouping=b.dataset.group as Grouping;syncControls();draw();}));
-  document.querySelectorAll<HTMLButtonElement>('[data-theme]').forEach(b=>b.addEventListener('click',()=>{config.theme=b.dataset.theme as Theme;syncControls();draw();}));
+  el('brain-plus').addEventListener('click',()=>zoom(1.2));el('brain-minus').addEventListener('click',()=>zoom(1/1.2));
+  el('brain-center').addEventListener('click',resetView);el('brain-reset-view').addEventListener('click',resetView);
+  document.querySelectorAll<HTMLButtonElement>('[data-layout]').forEach(b=>b.addEventListener('click',()=>{config.layout=b.dataset.layout as Layout;hovered=undefined;el('brain-tooltip').hidden=true;syncControls();draw();}));
+  document.querySelectorAll<HTMLButtonElement>('[data-group]').forEach(b=>b.addEventListener('click',()=>{config.grouping=b.dataset.group as Grouping;hovered=undefined;el('brain-tooltip').hidden=true;syncControls();draw();}));
+  document.querySelectorAll<HTMLButtonElement>('[data-theme]').forEach(b=>b.addEventListener('click',()=>{config.theme=b.dataset.theme as Theme;syncControls();list();draw();}));
   speed.addEventListener('input',()=>{config.speed=Number(speed.value);syncControls();});size.addEventListener('input',()=>{config.size=Number(size.value);syncControls();draw();});
+  force.addEventListener('input',()=>{config.force=Number(force.value);syncControls();draw();});
+  el('brain-expand').addEventListener('click',()=>{config.expanded=true;syncControls();draw();});el('brain-collapse').addEventListener('click',()=>{config.expanded=false;syncControls();draw();});
   labels.addEventListener('change',()=>{config.labels=labels.checked;draw();});
   let timer:ReturnType<typeof setTimeout>;search.addEventListener('input',()=>{++requestId;clearTimeout(timer);timer=setTimeout(()=>{void load();},250);});
   el('brain-refresh').addEventListener('click',()=>{void load();});el('brain-more').addEventListener('click',()=>{void load(true);});el('brain-save').addEventListener('click',save);
