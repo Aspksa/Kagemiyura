@@ -73,6 +73,7 @@ try {
  await page.locator('[data-nav=brain]').click();
  await page.locator('#brain-page').waitFor({state:'visible'});
  await page.locator('#command-list button').first().waitFor();
+ console.log('COMMAND_SHOT:'+(await page.screenshot({type:'jpeg',quality:35})).toString('base64'));
  assert.equal(await page.locator('#brain-command-view').getAttribute('aria-pressed'),'true');
  await page.locator('#command-open-map').click();
  await page.locator('#brain-list button').first().waitFor();
@@ -95,6 +96,7 @@ try {
  await page.mouse.click(box.x+box.width/2,box.y+box.height/2);
  await page.locator('#brain-details').waitFor({state:'visible'});
  await page.locator('#brain-details-close').click();
+ console.log('HEX_SHOT:'+(await page.screenshot({type:'jpeg',quality:35})).toString('base64'));
  await page.locator('#brain-search').fill('ПОМНИ');
  await page.locator('#brain-list button').first().waitFor();
  await page.locator('#brain-list button').first().click();
