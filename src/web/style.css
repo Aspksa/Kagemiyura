@@ -49,3 +49,21 @@
 @media(prefers-reduced-motion:reduce){
   .avatar .avatar-particle{animation:none!important;opacity:calc(var(--particle-opacity,1) * .6);transform:scale(var(--spark-depth,1));will-change:auto}
 }
+
+/* Crisp double-ring magic sigil without an extra asset or external dependency. */
+.avatar .avatar-circle{isolation:isolate}
+.avatar .avatar-circle::before{
+  content:'';
+  position:absolute;
+  inset:11%;
+  border:1px solid currentColor;
+  color:var(--magic-color,#e9b968);
+  border-radius:50%;
+  box-shadow:inset 0 0 8px currentColor,0 0 9px currentColor;
+  background:repeating-conic-gradient(from 22.5deg,transparent 0deg 42deg,currentColor 43deg 44deg,transparent 45deg);
+  opacity:.6;
+}
+.avatar .avatar-circle::after{display:none}
+@media(prefers-reduced-motion:reduce){
+  .avatar .avatar-circle,.avatar .avatar-fire,.avatar[data-motion] > img{animation:none!important}
+}
