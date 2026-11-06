@@ -419,7 +419,12 @@ function applyAvatar() {
     const detail = document.createElementNS('http://www.w3.org/2000/svg','path');
     detail.setAttribute('d', v.particles === 'sakura' ? 'M12 20C12 15 9 11 7 8M12 16C14 12 16 10 18 8' : v.particles === 'fireflies' ? 'M10 10C5 5 2 8 7 12M14 10C19 5 22 8 17 12M10 15H14' : v.particles === 'embers' ? 'M12 19C9 17 10 14 12 11C13 14 15 15 14 18' : 'M12 5V19M5 12H19');
     detail.setAttribute('fill','none'); detail.setAttribute('stroke','#fff'); detail.setAttribute('stroke-width','1'); detail.setAttribute('stroke-linecap','round'); svg.append(detail); spark.append(svg);
-    spark.style.left = `${5 + (i * 37 % 90)}%`; spark.style.animationDelay = `${-(i * 0.61)}s`;
+    spark.style.left = `${5 + (i * 37 % 90)}%`;
+    spark.style.setProperty('--spark-drift', `${(i * 29 % 65) - 32}px`);
+    spark.style.setProperty('--spark-sway', `${(i * 17 % 45) - 22}px`);
+    spark.style.setProperty('--spark-rotate', `${(i * 47 % 180) - 90}deg`);
+    spark.style.setProperty('--spark-depth', String(0.55 + (i * 13 % 46) / 100));
+    spark.style.animationDelay = `${-(i * 0.61)}s`;
     spark.style.animationDuration = `${(3 + (i % 4)) * 100 / v.particleSpeed}s`; container.append(spark);
   }
   const preview = avatarButton.cloneNode(true) as HTMLButtonElement; preview.removeAttribute('id'); preview.tabIndex = -1; preview.classList.add('avatar-preview-copy');
