@@ -154,6 +154,16 @@ export function createBrain(openConversation: (id: string) => Promise<void>) {
           ctx.beginPath();ctx.arc(x,y,tile*.22,0,Math.PI*2);ctx.strokeStyle=c+'66';ctx.stroke();
           ctx.beginPath();ctx.arc(x,y,tile*.34,0,Math.PI*2);ctx.strokeStyle=c+'28';ctx.stroke();
           ctx.beginPath();ctx.arc(x,y,tile*.48,0,Math.PI*2);ctx.strokeStyle=c+'19';ctx.stroke();
+          // Animated hexagonal perimeter accents, kept subtle at normal zoom.
+          if(!reducedMotion.matches && config.speed>0){
+            const edge=Math.floor((phase*120+index*1.7)%6);
+            const a=Math.PI/3*edge-Math.PI/6,b=a+Math.PI/3;
+            ctx.save();ctx.beginPath();
+            ctx.moveTo(x+Math.cos(a)*tile,y+Math.sin(a)*tile);
+            ctx.lineTo(x+Math.cos(b)*tile,y+Math.sin(b)*tile);
+            ctx.strokeStyle=c+'bb';ctx.lineWidth=1.6*config.lineWidth/100;
+            ctx.shadowColor=c;ctx.shadowBlur=7;ctx.stroke();ctx.restore();
+          }
           for(let edge=0;edge<6;edge++){const a=Math.PI/3*edge-Math.PI/6;ctx.beginPath();ctx.moveTo(x+Math.cos(a)*tile*.74,y+Math.sin(a)*tile*.74);ctx.lineTo(x+Math.cos(a)*tile*.88,y+Math.sin(a)*tile*.88);ctx.strokeStyle=c+'aa';ctx.lineWidth=1.3;ctx.stroke();}
           const dots=Math.min(item.messageCount,48);for(let k=0;k<dots;k++){const a=k*2.39996,rad=Math.sqrt((k+1)/49)*tile*.72;ctx.fillStyle=c+(k%4===0?'cc':'66');ctx.fillRect(x+Math.cos(a)*rad,y+Math.sin(a)*rad,2,2);}
           ctx.beginPath();ctx.arc(x,y,3,0,Math.PI*2);ctx.fillStyle=c;ctx.shadowColor=c;ctx.shadowBlur=12;ctx.fill();ctx.shadowBlur=0;
