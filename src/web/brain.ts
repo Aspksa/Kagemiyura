@@ -30,7 +30,7 @@ export function createBrain(openConversation: (id: string) => Promise<void>) {
   const dialog = el<HTMLDialogElement>('brain-details');
   let config = settings(); let items: ConversationSummary[] = []; let points: Point[] = []; let hasMore = false; let requestId = 0; let detailId = 0;
   let width = 1; let height = 1; let scale = 1; let offsetX = 0; let offsetY = 0; let phase = 0; let last = 0; let frame = 0; let visible = false;
-  let selected: ConversationSummary | undefined; let drag: { x:number; y:number; startX:number; startY:number; moved:boolean } | undefined;
+  let selected: ConversationSummary | undefined; let suppressClickUntil=0; let drag: { x:number; y:number; startX:number; startY:number; moved:boolean } | undefined;
   let view: 'command'|'map' = 'command'; let clock: ReturnType<typeof setInterval> | undefined;
   let forceKey = ''; let forcePoints: {x:number;y:number}[] = [];
   const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
@@ -212,9 +212,9 @@ export function createBrain(openConversation: (id: string) => Promise<void>) {
   });
   canvas.addEventListener('pointerleave',()=>{el('brain-tooltip').hidden=true;});
   canvas.addEventListener('lostpointercapture',()=>{drag=undefined;});
-  canvas.addEventListener('pointerup',event=>{if(!drag)return;if(!drag.moved){const rect=canvas.getBoundingClientRect();const x=(event.clientX-rect.left-width/2-offsetX)/scale,y=(event.clientY-rect.top-height/2-offsetY)/scale;const hit=[...points].reverse().find(p=>Math.hypot(p.x-x,p.y-y)<Math.max(p.radius*2,12/scale));if(hit)void showDetails(hit.item);}drag=undefined;});
+  canvas.addEventListener('pointerup',event=>{if(!drag)return;if(!drag.moved){const rect=canvas.getBoundingClientRect();const x=(event.clientX-rect.left-width/2-offsetX)/scale,y=(event.clientY-rect.top-height/2-offsetY)/scale;const hit=[...points].reverse().find(p=>Math.hypot(p.x-x,p.y-y)<Math.max(p.radius*2,12/scale));if(hit && Date.now()>suppressClickUntil)void showDetails(hit.item);}drag=undefined;});
   canvas.addEventListener('pointercancel',()=>{drag=undefined;});
-  canvas.addEventListener('dblclick',event=>{
+  canvas.addEventListener('dblclick',event=>{suppressClickUntil=Date.now()+400;
     const rect=canvas.getBoundingClientRect();
     const px=event.clientX-rect.left-width/2,py=event.clientY-rect.top-height/2;
     const worldX=(px-offsetX)/scale,worldY=(py-offsetY)/scale;
