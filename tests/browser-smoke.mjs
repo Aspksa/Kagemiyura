@@ -33,7 +33,7 @@ try {
  await page.getByRole('combobox',{name:'Вид частиц'}).selectOption('sakura');
  assert.equal(await page.locator('#avatar .avatar-particle').count(),8);
  assert.equal(await page.locator('#avatar-preview-art .avatar-particle').count(),8);
- assert.equal(await page.locator('#avatar .avatar-particle svg path').count(),8);
+ assert.equal(await page.locator('#avatar .avatar-particle svg').count(),8);
  await page.getByRole('combobox',{name:'Вид частиц'}).selectOption('embers');
  assert.equal(await page.locator('#avatar').getAttribute('data-particles'),'embers');
  await page.getByRole('combobox',{name:'Вид частиц'}).selectOption('sakura');
