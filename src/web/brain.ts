@@ -100,8 +100,10 @@ export function createBrain(openConversation: (id: string) => Promise<void>) {
     for (const item of items) { const key=config.grouping==='all'?'Разговоры':monthKey(item); const list=result.get(key) ?? []; list.push(item); result.set(key,list); }
     return [...result.entries()];
   }
+  let topicCache: {source:ConversationSummary[];links:{from:string;to:string;shared:string[]}[]} | undefined;
   // Local, explainable topic hints. Never label lexical overlap as a verified fact.
   function titleLinks(source: ConversationSummary[]) {
+    if(topicCache?.source===source)return topicCache.links;
     const stop=new Set(['этот','этого','этой','только','чтобы','после','перед','когда','сделай','делай','проект','проекта','работа','работы','помощью','будет','теперь','снова','дальше','через','нужно','можно','about','with','from','this','that','your','project']);
     const tokens=source.map(item=>new Set((item.title.toLocaleLowerCase('ru-RU').match(/[\p{L}\p{N}]{4,}/gu)??[]).filter(word=>!stop.has(word))));
     const frequencies=new Map<string,number>();
@@ -112,9 +114,9 @@ export function createBrain(openConversation: (id: string) => Promise<void>) {
     for(let i=0;i<limit;i++)for(let j=i+1;j<limit;j++){
       const shared=[...tokens[i]!].filter(word=>tokens[j]!.has(word) && (frequencies.get(word)??0)<=Math.max(3,source.length*.3));
       if(shared.length>=2)result.push({from:source[i]!.id,to:source[j]!.id,shared:shared.slice(0,4)});
-      if(result.length>=240)return result;
+      if(result.length>=240){topicCache={source,links:result};return result;}
     }
-    return result;
+    topicCache={source,links:result};return result;
   }
   function forceLayout(total:number, base:number) {
     const key=`${items.map(item=>item.id).join(',')}:${Math.round(base)}`;if(key===forceKey)return forcePoints;
