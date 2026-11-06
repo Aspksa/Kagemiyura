@@ -66,7 +66,7 @@ export function createBrain(openConversation: (id: string) => Promise<void>) {
   }
   function updateClock() { const now=new Date();el('command-time').textContent=now.toLocaleTimeString('ru-RU');el('command-date').textContent=now.toLocaleDateString('ru-RU',{weekday:'long',day:'numeric',month:'long',year:'numeric'}); }
   function captureTransition() {
-    if(!visible || reducedMotion.matches || config.speed===0 || canvas.width===0)return;
+    if(!visible || reducedMotion.matches || config.speed===0 || canvas.width===0){transition=undefined;return;}
     const snapshot=document.createElement('canvas');
     snapshot.width=canvas.width;snapshot.height=canvas.height;
     snapshot.getContext('2d')?.drawImage(canvas,0,0);
@@ -406,12 +406,13 @@ export function createBrain(openConversation: (id: string) => Promise<void>) {
     config.layout=next;syncControls();draw();
   }
   function animate(time:number) { if(!visible) return; if(!last || time-last>=33){if(last && !reducedMotion.matches && config.speed>0)phase += Math.min(time-last,100)*config.speed/100*0.00008;
+    const cameraWasMoving=Boolean(cameraMotion);
     if(cameraMotion){
       const m=cameraMotion,t=Math.min(1,(time-m.started)/260),ease=1-Math.pow(1-t,3);
       scale=m.fromScale+(m.toScale-m.fromScale)*ease;offsetX=m.fromX+(m.toX-m.fromX)*ease;offsetY=m.fromY+(m.toY-m.fromY)*ease;
       if(t>=1)cameraMotion=undefined;
     }
-    if(cameraMotion || transition || (!reducedMotion.matches && config.speed>0))draw(); last=time;} frame=requestAnimationFrame(animate); }
+    if(cameraWasMoving || transition || (!reducedMotion.matches && config.speed>0))draw(); last=time;} frame=requestAnimationFrame(animate); }
   function list() {
     const box=el('brain-list'); box.replaceChildren();
     for(const item of items) {const b=document.createElement('button');b.textContent=item.title;b.title=item.title;b.addEventListener('click',()=>{void showDetails(item);});box.append(b);}
@@ -475,17 +476,21 @@ export function createBrain(openConversation: (id: string) => Promise<void>) {
   canvas.addEventListener('keydown',event=>{
     const step=event.shiftKey?80:32;
     switch(event.key){
-      case 'ArrowLeft': offsetX+=step; break;
-      case 'ArrowRight': offsetX-=step; break;
-      case 'ArrowUp': offsetY+=step; break;
-      case 'ArrowDown': offsetY-=step; break;
-      case '+': case '=': scale=Math.min(3,scale*1.2); break;
-      case '-': case '_': scale=Math.max(.4,scale/1.2); break;
-      case '0': scale=1;offsetX=0;offsetY=0;break;
+      case 'ArrowLeft': case 'ArrowRight': case 'ArrowUp': case 'ArrowDown': {
+        // Interrupt a running camera tween before manual keyboard panning.
+        cameraMotion=undefined;
+        if(event.key==='ArrowLeft')offsetX+=step;
+        if(event.key==='ArrowRight')offsetX-=step;
+        if(event.key==='ArrowUp')offsetY+=step;
+        if(event.key==='ArrowDown')offsetY-=step;
+        draw();break;
+      }
+      case '+': case '=': zoomAt(1.2);break;
+      case '-': case '_': zoomAt(1/1.2);break;
+      case '0': moveCamera(1,0,0);break;
       default:return;
     }
     event.preventDefault();
-    draw();
   });
   el<HTMLButtonElement>('brain-panel-toggle').addEventListener('click',event=>{const button=event.currentTarget as HTMLButtonElement;const panel=document.querySelector<HTMLElement>('.brain-panel')!;panel.hidden=!panel.hidden;button.setAttribute('aria-expanded',String(!panel.hidden));button.setAttribute('aria-label',panel.hidden?'Показать настройки карты':'Скрыть настройки карты');requestAnimationFrame(resize);});
   el('brain-plus').addEventListener('click',()=>zoomAt(1.2));el('brain-minus').addEventListener('click',()=>zoomAt(1/1.2));
