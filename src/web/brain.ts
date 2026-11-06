@@ -523,12 +523,33 @@ export function createBrain(openConversation: (id: string) => Promise<void>) {
       return other?`${other.title} (общие слова: ${link.shared.join(', ')})`:undefined;
     }).filter((line):line is string=>Boolean(line));
     el('brain-details-meta').textContent=`Сообщений: ${item.messageCount} · Обновлён: ${new Date(item.updatedAt).toLocaleString('ru-RU')}`;
-    const relatedText=related.length?`\n\nПохожие темы по названиям (не подтверждённые факты):\n${related.map(line=>`• ${line}`).join('\n')}`:'';
-
+    // The title matches are navigable evidence, not inferred factual assertions.
+    let relatedPanel=dialog.querySelector<HTMLElement>('[data-related-conversations]');
+    if(!relatedPanel){
+      relatedPanel=document.createElement('section');
+      relatedPanel.dataset.relatedConversations='true';
+      relatedPanel.setAttribute('aria-label','Разговоры с похожими темами');
+      dialog.append(relatedPanel);
+    }
+    relatedPanel.replaceChildren();
+    if(related.length){
+      const heading=document.createElement('p');
+      heading.textContent='Похожие темы по названиям · не подтверждённые факты';
+      relatedPanel.append(heading);
+      for(const link of titleLinks(items).filter(link=>link.from===item.id||link.to===item.id).slice(0,5)){
+        const other=items.find(candidate=>candidate.id===(link.from===item.id?link.to:link.from));
+        if(!other)continue;
+        const button=document.createElement('button');
+        button.type='button';button.className='brain-related-link';
+        button.textContent=`${other.title} · Общие слова: ${link.shared.join(', ')}`;
+        button.addEventListener('click',()=>{void showDetails(other);});
+        relatedPanel.append(button);
+      }
+    }
     el('brain-details-preview').textContent='Загрузка…';if(!dialog.open)dialog.showModal();
     try {const response=await fetch(`/api/conversations/${item.id}`);if(!response.ok)throw Error();const c=await response.json() as Conversation;
-      if(id===detailId && dialog.open) el('brain-details-preview').textContent=(c.messages.slice(0,2).map(m=>`${m.role==='user'?'Ты':'Кагэмиюра'}: ${m.content}`).join('\n\n').slice(0,600) || 'В этом разговоре пока нет сообщений.')+relatedText;
-    } catch {if(id===detailId && dialog.open)el('brain-details-preview').textContent='Не удалось загрузить разговор.'+relatedText;}
+      if(id===detailId && dialog.open) el('brain-details-preview').textContent=(c.messages.slice(0,2).map(m=>`${m.role==='user'?'Ты':'Кагэмиюра'}: ${m.content}`).join('\n\n').slice(0,600) || 'В этом разговоре пока нет сообщений.');
+    } catch {if(id===detailId && dialog.open)el('brain-details-preview').textContent='Не удалось загрузить разговор.';}
   }
   canvas.addEventListener('pointerdown',event=>{if(event.button!==0)return;cameraMotion=undefined;drag={x:event.clientX,y:event.clientY,startX:event.clientX,startY:event.clientY,moved:false};canvas.setPointerCapture(event.pointerId);});
   canvas.addEventListener('pointermove',event=>{

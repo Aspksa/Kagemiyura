@@ -105,3 +105,9 @@
   .brain-heading{top:21px;left:25px}
   .brain-status{bottom:20px;left:25px}
 }
+
+/* Evidence-backed topic navigation inside the brain details dialog. */
+#brain-details [data-related-conversations]{display:grid;gap:7px;margin-top:14px;max-height:180px;overflow:auto}
+#brain-details [data-related-conversations] p{margin:0 0 3px;color:#91b8b9;font-size:12px}
+#brain-details .brain-related-link{display:block;width:100%;padding:9px 11px;border:1px solid rgba(94,171,171,.23);border-radius:8px;background:rgba(19,52,64,.55);color:#c6e6e1;text-align:left;font:12px/1.5 inherit;cursor:pointer;overflow-wrap:anywhere}
+#brain-details .brain-related-link:hover,#brain-details .brain-related-link:focus-visible{border-color:#70cfc0;background:rgba(32,83,88,.7);outline-offset:2px}
