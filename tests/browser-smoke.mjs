@@ -94,6 +94,7 @@ try {
  await page.locator('[data-layout=rings]').click();
  assert.equal(await page.locator('[data-layout=rings]').getAttribute('aria-pressed'),'true');
  await page.locator('[data-layout=circle]').click();
+ assert.notEqual(await page.locator('#brain-canvas').evaluate(node=>node.toDataURL()),'', 'Circle layout renders a canvas');
  assert.equal(await page.locator('[data-layout=circle]').getAttribute('aria-pressed'),'true');
  await page.locator('[data-layout=rings]').click();
  assert.equal(await page.locator('[data-layout=rings]').getAttribute('aria-pressed'),'true');
