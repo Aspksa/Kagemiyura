@@ -67,3 +67,11 @@
 @media(prefers-reduced-motion:reduce){
   .avatar .avatar-circle,.avatar .avatar-fire,.avatar[data-motion] > img{animation:none!important}
 }
+
+/* Compact reference-video map controls and cool turquoise graph surface. */
+.brain-page[data-view=map] .brain-panel{background:#07131e;border-left-color:#1c3842}
+.brain-page[data-view=map] .brain-options{gap:4px}
+.brain-page[data-view=map] .brain-options button{font-size:10px;letter-spacing:.15px}
+.brain-page[data-view=map] .brain-slider{accent-color:#4bc9bd}
+.brain-page[data-view=map] .brain-stage{background:#020d19}
+.brain-page[data-view=map] .brain-panel-head{color:#8bded5}
