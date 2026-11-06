@@ -1,5 +1,6 @@
 import type { ChatMessage, Conversation, ConversationSummary, PublicSettings } from '../shared/types.js';
 import { sseData } from '../shared/sse.js';
+import { createBrain } from './brain.js';
 
 function element<T extends HTMLElement>(id: string): T {
   const node = document.getElementById(id);
@@ -18,6 +19,7 @@ let ready = false;
 let currentSettings: PublicSettings | undefined;
 let controller: AbortController | undefined;
 let noticeTimer: ReturnType<typeof setTimeout>;
+const brain = createBrain(id => openConversation(id));
 
 function notice(message: string, error = false) {
   const node = element('notice');
@@ -47,8 +49,9 @@ function applySettings(value: PublicSettings) {
 function navigate() {
   const chatOpen = location.pathname === '/chat';
   const background = chatOpen ? returnPage : location.pathname;
-  const page = background === '/settings' ? 'settings' : background === '/history' ? 'history' : 'home';
-  for (const name of ['settings', 'history', 'home']) element(`${name}-page`).hidden = page !== name;
+  const page = background === '/settings' ? 'settings' : background === '/history' ? 'history' : background === '/brain' ? 'brain' : 'home';
+  for (const name of ['settings', 'history', 'brain', 'home']) element(`${name}-page`).hidden = page !== name;
+  brain.setVisible(page === 'brain');
   document.body.classList.toggle('on-home', page === 'home');
   element('chat-page').hidden = !chatOpen;
   const avatar = element<HTMLButtonElement>('avatar');
@@ -69,7 +72,7 @@ function closeChat() {
 }
 element('avatar').addEventListener('click', () => {
   if (location.pathname === '/chat') { closeChat(); return; }
-  returnPage = location.pathname === '/settings' ? '/settings' : location.pathname === '/history' ? '/history' : '/';
+  returnPage = ['/settings', '/history', '/brain'].includes(location.pathname) ? location.pathname : '/';
   window.history.pushState({}, '', '/chat');
   navigate();
   input.focus();
@@ -82,7 +85,7 @@ document.addEventListener('click', event => {
   if (!(event.target instanceof Element)) return;
   const link = event.target.closest<HTMLAnchorElement>('a[href]');
   if (!link || link.origin !== location.origin || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
-  if (!['/', '/chat', '/settings', '/history'].includes(link.pathname)) return;
+  if (!['/', '/chat', '/settings', '/history', '/brain'].includes(link.pathname)) return;
   event.preventDefault();
   window.history.pushState({}, '', link.pathname);
   navigate();
@@ -136,6 +139,7 @@ async function openConversation(id: string) {
   const value = await api<Conversation>(`/api/conversations/${id}`);
   if (controller) return;
   showConversation(value);
+  if (location.pathname !== '/chat') returnPage = location.pathname;
   window.history.pushState({}, '', '/chat');
   navigate();
 }

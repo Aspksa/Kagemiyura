@@ -70,6 +70,27 @@ try {
  await page.waitForFunction(()=>!document.querySelector('#send').disabled);
  await page.reload();
  await page.getByText('Хозяин, переписка сохранена.',{exact:true}).waitFor();
+ await page.locator('[data-nav=brain]').click();
+ await page.locator('#brain-page').waitFor({state:'visible'});
+ await page.locator('#brain-list button').first().waitFor();
+ assert.equal(await page.locator('#brain-list button').count(),1);
+ await page.locator('[data-layout=hex]').click();
+ await page.locator('[data-theme=ocean]').click();
+ await page.locator('#brain-save').click();
+ await page.reload();
+ await page.locator('#brain-list button').first().waitFor();
+ assert.equal(await page.locator('[data-layout=hex]').getAttribute('aria-pressed'),'true');
+ assert.equal(await page.locator('[data-theme=ocean]').getAttribute('aria-pressed'),'true');
+ await page.locator('#brain-search').fill('ПОМНИ');
+ await page.locator('#brain-list button').first().waitFor();
+ await page.locator('#brain-list button').first().click();
+ await page.locator('#brain-details').waitFor({state:'visible'});
+ await page.getByText('Ты: Помни мой проект',{exact:false}).waitFor();
+ await page.locator('#brain-open-chat').click();
+ await page.getByText('Хозяин, переписка сохранена.',{exact:true}).waitFor();
+ await page.locator('#close-chat').click();
+ assert.equal(new URL(page.url()).pathname,'/brain');
+ await page.locator('#avatar').click();
  await page.locator('#new-chat').click();
  await page.locator('#welcome').waitFor({state:'visible'});
  await page.locator('#close-chat').click();
@@ -88,7 +109,7 @@ try {
  await mkdir(new URL('../.runtime',import.meta.url),{recursive:true});
  await page.screenshot({path:fileURLToPath(new URL('../.runtime/ui-desktop.png',import.meta.url))});
  await page.setViewportSize({width:390,height:844});
- for(const path of ['/chat','/history','/settings']) {
+ for(const path of ['/chat','/history','/brain','/settings']) {
    await page.goto(base+path);
    await page.waitForFunction(()=>!document.querySelector('#send').disabled);
    assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true,path+' overflows');

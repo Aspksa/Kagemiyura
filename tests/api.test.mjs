@@ -99,7 +99,7 @@ test('a truncated provider stream produces an explicit error after partial text'
 });
 test('serves separate pages and browser modules, without exposing data files', async t => {
   const f = await fixture(t);
-  for (const path of ['/chat', '/settings', '/assets/app.js', '/assets/style.css', '/shared/sse.js', '/kagemiyura.png']) {
+  for (const path of ['/chat', '/settings', '/brain', '/assets/app.js', '/assets/brain.js', '/assets/style.css', '/shared/sse.js', '/kagemiyura.png']) {
     assert.equal((await f.api(path)).status, 200, path);
   }
   for (const path of ['/data/cloudru-settings.json', '/.runtime/server.json', '/%2e%2e%2fpackage.json']) assert.notEqual((await f.api(path)).status, 200);
