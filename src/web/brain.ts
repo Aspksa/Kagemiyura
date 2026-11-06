@@ -518,11 +518,17 @@ export function createBrain(openConversation: (id: string) => Promise<void>) {
   }
   async function showDetails(item:ConversationSummary) {
     selected=item;const id=++detailId;el('brain-details-title').textContent=item.title;
+    const related=titleLinks(items).filter(link=>link.from===item.id||link.to===item.id).slice(0,5).map(link=>{
+      const other=items.find(candidate=>candidate.id===(link.from===item.id?link.to:link.from));
+      return other?`${other.title} (общие слова: ${link.shared.join(', ')})`:undefined;
+    }).filter((line):line is string=>Boolean(line));
     el('brain-details-meta').textContent=`Сообщений: ${item.messageCount} · Обновлён: ${new Date(item.updatedAt).toLocaleString('ru-RU')}`;
+    const relatedText=related.length?`\n\nПохожие темы по названиям (не подтверждённые факты):\n${related.map(line=>`• ${line}`).join('\n')}`:'';
+
     el('brain-details-preview').textContent='Загрузка…';if(!dialog.open)dialog.showModal();
     try {const response=await fetch(`/api/conversations/${item.id}`);if(!response.ok)throw Error();const c=await response.json() as Conversation;
-      if(id===detailId && dialog.open) el('brain-details-preview').textContent=c.messages.slice(0,2).map(m=>`${m.role==='user'?'Ты':'Кагэмиюра'}: ${m.content}`).join('\n\n').slice(0,600) || 'В этом разговоре пока нет сообщений.';
-    } catch {if(id===detailId && dialog.open)el('brain-details-preview').textContent='Не удалось загрузить разговор.';}
+      if(id===detailId && dialog.open) el('brain-details-preview').textContent=(c.messages.slice(0,2).map(m=>`${m.role==='user'?'Ты':'Кагэмиюра'}: ${m.content}`).join('\n\n').slice(0,600) || 'В этом разговоре пока нет сообщений.')+relatedText;
+    } catch {if(id===detailId && dialog.open)el('brain-details-preview').textContent='Не удалось загрузить разговор.'+relatedText;}
   }
   canvas.addEventListener('pointerdown',event=>{if(event.button!==0)return;cameraMotion=undefined;drag={x:event.clientX,y:event.clientY,startX:event.clientX,startY:event.clientY,moved:false};canvas.setPointerCapture(event.pointerId);});
   canvas.addEventListener('pointermove',event=>{
