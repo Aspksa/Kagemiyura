@@ -95,6 +95,10 @@ try {
  assert.equal(await page.locator('[data-layout=rings]').getAttribute('aria-pressed'),'true');
  await page.locator('[data-layout=circle]').click();
  assert.equal(await page.locator('[data-layout=circle]').getAttribute('aria-pressed'),'true');
+ await page.locator('[data-layout=rings]').click();
+ assert.equal(await page.locator('[data-layout=rings]').getAttribute('aria-pressed'),'true');
+ await page.locator('[data-layout=circle]').click();
+ assert.equal(await page.locator('[data-layout=circle]').getAttribute('aria-pressed'),'true');
  await page.locator('[data-layout=hex]').click();
  await page.locator('#brain-size').evaluate(node=>{node.value='70';node.dispatchEvent(new Event('input',{bubbles:true}));});
  const smallHex=await page.locator('#brain-canvas').evaluate(node=>node.toDataURL());

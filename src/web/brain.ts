@@ -30,7 +30,7 @@ export function createBrain(openConversation: (id: string) => Promise<void>) {
   const dialog = el<HTMLDialogElement>('brain-details');
   let config = settings(); let items: ConversationSummary[] = []; let points: Point[] = []; let hasMore = false; let requestId = 0; let detailId = 0;
   let width = 1; let height = 1; let scale = 1; let offsetX = 0; let offsetY = 0; let phase = 0; let last = 0; let frame = 0; let visible = false;
-  let selected: ConversationSummary | undefined; let drag: { x:number; y:number; startX:number; startY:number; moved:boolean } | undefined;
+  let selected: ConversationSummary | undefined; let suppressClickUntil=0; let drag: { x:number; y:number; startX:number; startY:number; moved:boolean } | undefined;
   let view: 'command'|'map' = 'command'; let clock: ReturnType<typeof setInterval> | undefined;
   let forceKey = ''; let forcePoints: {x:number;y:number}[] = [];
   const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
@@ -55,7 +55,9 @@ export function createBrain(openConversation: (id: string) => Promise<void>) {
   }
   function resize() {
     const rect = stage.getBoundingClientRect(); if (!rect.width || !rect.height) return;
-    width = rect.width; height = rect.height; const ratio = Math.min(window.devicePixelRatio || 1, 2);
+    const ratio = Math.min(window.devicePixelRatio || 1, 2);
+    if(canvas.width===Math.round(rect.width*ratio) && canvas.height===Math.round(rect.height*ratio)) return;
+    width = rect.width; height = rect.height;
     canvas.width = Math.round(width * ratio); canvas.height = Math.round(height * ratio);
     canvas.style.width = `${width}px`; canvas.style.height = `${height}px`; ctx.setTransform(ratio,0,0,ratio,0,0);
     if (visible) draw();
@@ -116,6 +118,7 @@ export function createBrain(openConversation: (id: string) => Promise<void>) {
           const c=color(groupIndex);ctx.beginPath();for(let j=0;j<6;j++){const a=Math.PI/3*j-Math.PI/6,px=x+Math.cos(a)*tile,py=y+Math.sin(a)*tile;j===0?ctx.moveTo(px,py):ctx.lineTo(px,py);}ctx.closePath();ctx.fillStyle=c+'0b';ctx.fill();ctx.strokeStyle=c+'55';ctx.lineWidth=.8;ctx.stroke();
           ctx.beginPath();ctx.arc(x,y,tile*.22,0,Math.PI*2);ctx.strokeStyle=c+'66';ctx.stroke();
           ctx.beginPath();ctx.arc(x,y,tile*.34,0,Math.PI*2);ctx.strokeStyle=c+'28';ctx.stroke();
+          ctx.beginPath();ctx.arc(x,y,tile*.48,0,Math.PI*2);ctx.strokeStyle=c+'19';ctx.stroke();
           for(let edge=0;edge<6;edge++){const a=Math.PI/3*edge-Math.PI/6;ctx.beginPath();ctx.moveTo(x+Math.cos(a)*tile*.74,y+Math.sin(a)*tile*.74);ctx.lineTo(x+Math.cos(a)*tile*.88,y+Math.sin(a)*tile*.88);ctx.strokeStyle=c+'aa';ctx.lineWidth=1.3;ctx.stroke();}
           const dots=Math.min(item.messageCount,48);for(let k=0;k<dots;k++){const a=k*2.39996,rad=Math.sqrt((k+1)/49)*tile*.72;ctx.fillStyle=c+(k%4===0?'cc':'66');ctx.fillRect(x+Math.cos(a)*rad,y+Math.sin(a)*rad,2,2);}
           ctx.beginPath();ctx.arc(x,y,3,0,Math.PI*2);ctx.fillStyle=c;ctx.shadowColor=c;ctx.shadowBlur=12;ctx.fill();ctx.shadowBlur=0;
@@ -124,7 +127,7 @@ export function createBrain(openConversation: (id: string) => Promise<void>) {
         }
         if(config.layout==='rings' || view==='command') {
           const a=index/total*Math.PI*2-Math.PI/2+phase;
-          const outer=base*(.80+(index%3)*.055); x=Math.cos(a)*outer; y=Math.sin(a)*outer;
+          const outer=base*(.76+(index%4)*.064); x=Math.cos(a)*outer; y=Math.sin(a)*outer;
           const mid=base*.47; const innerX=Math.cos(a)*mid,innerY=Math.sin(a)*mid; const c=color(groupIndex);
           ctx.beginPath();ctx.moveTo(innerX,innerY);ctx.lineTo(x,y);ctx.strokeStyle=c+'25';ctx.lineWidth=.65;ctx.stroke();
           const dots=Math.min(item.messageCount,48);
@@ -153,6 +156,11 @@ export function createBrain(openConversation: (id: string) => Promise<void>) {
       });
       if(config.grouping==='months' && list.length && config.layout==='rings' && grouped.length<=24) {const start=index-list.length;const a=(start+(list.length-1)/2)/total*Math.PI*2-Math.PI/2+phase;ctx.font='9px Consolas, monospace';ctx.fillStyle=color(groupIndex);ctx.textAlign='center';ctx.fillText(group.toLocaleUpperCase('ru-RU'),Math.cos(a)*base*.76,Math.sin(a)*base*.76);}
     });
+    if(view==='map' && config.layout==='circle' && clusterCount>1){
+      ctx.save();ctx.globalAlpha=.24;ctx.strokeStyle=palette[0]!;ctx.lineWidth=.65;
+      for(const center of clusterCenters){ctx.beginPath();ctx.moveTo(0,0);ctx.lineTo(center.x,center.y);ctx.stroke();}
+      ctx.restore();
+    }
     if(view==='command') {
       // Decorative central light, not an indication of stored facts.
       for(let n=0;n<160;n++){const a=n*2.39996;const r=Math.sqrt(n/160)*25;const x=Math.cos(a)*r,y=Math.sin(a)*r;ctx.fillStyle=n%5===0?'#65efd2aa':'#4bc7b077';ctx.fillRect(x,y,n%11===0?2:1,n%11===0?2:1);}
@@ -204,9 +212,9 @@ export function createBrain(openConversation: (id: string) => Promise<void>) {
   });
   canvas.addEventListener('pointerleave',()=>{el('brain-tooltip').hidden=true;});
   canvas.addEventListener('lostpointercapture',()=>{drag=undefined;});
-  canvas.addEventListener('pointerup',event=>{if(!drag)return;if(!drag.moved){const rect=canvas.getBoundingClientRect();const x=(event.clientX-rect.left-width/2-offsetX)/scale,y=(event.clientY-rect.top-height/2-offsetY)/scale;const hit=[...points].reverse().find(p=>Math.hypot(p.x-x,p.y-y)<Math.max(p.radius*2,12/scale));if(hit)void showDetails(hit.item);}drag=undefined;});
+  canvas.addEventListener('pointerup',event=>{if(!drag)return;if(!drag.moved){const rect=canvas.getBoundingClientRect();const x=(event.clientX-rect.left-width/2-offsetX)/scale,y=(event.clientY-rect.top-height/2-offsetY)/scale;const hit=[...points].reverse().find(p=>Math.hypot(p.x-x,p.y-y)<Math.max(p.radius*2,12/scale));if(hit && Date.now()>suppressClickUntil)void showDetails(hit.item);}drag=undefined;});
   canvas.addEventListener('pointercancel',()=>{drag=undefined;});
-  canvas.addEventListener('dblclick',event=>{
+  canvas.addEventListener('dblclick',event=>{suppressClickUntil=Date.now()+400;
     const rect=canvas.getBoundingClientRect();
     const px=event.clientX-rect.left-width/2,py=event.clientY-rect.top-height/2;
     const worldX=(px-offsetX)/scale,worldY=(py-offsetY)/scale;
