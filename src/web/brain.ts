@@ -156,12 +156,27 @@ export function createBrain(openConversation: (id: string) => Promise<void>) {
     if(view==='map' && config.layout==='circle'){
       grouped.forEach(([name,list],i)=>{
         const center=clusterCenters[i]!;
-        const radius=Math.min(base*.31,Math.max(25,base*.11+Math.sqrt(list.length)*8));
-        ctx.beginPath();ctx.arc(center.x,center.y,radius,0,Math.PI*2);
-        ctx.fillStyle=color(i)+'0b';ctx.fill();ctx.strokeStyle=color(i)+'55';ctx.lineWidth=1;ctx.stroke();
-        ctx.beginPath();ctx.arc(center.x,center.y,radius*.78,0,Math.PI*2);ctx.strokeStyle=color(i)+'22';ctx.stroke();
-        ctx.font='10px Consolas, monospace';ctx.fillStyle=color(i);ctx.textAlign='center';
-        ctx.fillText(name.toLocaleUpperCase('ru-RU').slice(0,22),center.x,center.y-radius-9);
+        // The reference uses square-pixel constellations, not large circular bubbles.
+        const count=Math.min(110,Math.max(24,list.reduce((sum,item)=>sum+Math.min(item.messageCount,15),0)));
+        const columns=Math.ceil(Math.sqrt(count*1.25));
+        const rows=Math.ceil(count/columns);
+        const gap=Math.max(5,Math.min(9,config.size/17));
+        const clusterColor=color(i);
+        ctx.save();
+        for(let dot=0;dot<count;dot++){
+          const col=dot%columns,row=Math.floor(dot/columns);
+          const dx=(col-(columns-1)/2)*gap;
+          const dy=(row-(rows-1)/2)*gap;
+          // Stable gaps and opacity variation create the video-style dotted texture.
+          if((dot*13+i*7)%17<3)continue;
+          const opacity=(dot*7+i*3)%9===0?'bb':(dot+i)%3===0?'77':'44';
+          ctx.fillStyle=clusterColor+opacity;
+          ctx.fillRect(center.x+dx-1.7,center.y+dy-1.7,3.4,3.4);
+        }
+        ctx.font='bold 11px Consolas, monospace';ctx.fillStyle=clusterColor;
+        ctx.textAlign='center';
+        ctx.fillText(name.toLocaleUpperCase('ru-RU').slice(0,24),center.x,center.y-(rows*gap)/2-15);
+        ctx.restore();
       });
     }
     grouped.forEach(([group, list], groupIndex)=>{
