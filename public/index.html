@@ -11,7 +11,7 @@
 </head>
 <body>
   <aside class="rail" aria-label="Главное меню">
-    <a class="brand" href="/history" title="Кагэмиюра" aria-label="Кагэмиюра">К</a>
+    <a class="brand" href="/" title="Главная" aria-label="Главная">К</a>
     <nav>
       <a href="/history" data-nav="history" title="История" aria-label="История"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v15H4zM8 2v6M16 2v6M8 12h8M8 16h5"/></svg></a>
     </nav>
@@ -19,6 +19,7 @@
   </aside>
   <main>
     <header class="topbar"><span>Кагэмиюра <small>личное пространство</small></span><span id="connection-status" class="status">Подключение…</span></header>
+    <section id="home-page" class="page home-page" aria-label="Главная"></section>
     <section id="chat-page" class="page chat-page" aria-label="Чат с Кагэмиюрой" hidden>
       <div class="chat-heading"><span>Кагэмиюра</span><div><button id="new-chat" class="text-button" title="Начать новый разговор">Новый чат</button><button id="close-chat" class="chat-close" aria-label="Закрыть чат">×</button></div></div>
       <div class="conversation-bar"><span id="conversation-title">Новый разговор</span><div id="conversation-tools" hidden><button id="rename-chat" class="text-button">Название</button><button id="export-chat" class="text-button">Скачать</button><button id="delete-chat" class="text-button">Удалить</button></div></div>
@@ -45,6 +46,10 @@
     </section>
     <div id="notice" class="notice" role="status" aria-live="polite" hidden></div>
   </main>
-  <button id="avatar" class="avatar" aria-label="Открыть чат с Кагэмиюрой" aria-controls="chat-page" aria-expanded="false" title="Открыть чат"><img src="/avatar.png" alt=""></button>
+  <button id="avatar" class="avatar" aria-label="Открыть чат с Кагэмиюрой" aria-controls="chat-page" aria-expanded="false" title="Чат · правая кнопка — настройки"><span class="avatar-shadow"></span><span class="avatar-circle"></span><span class="avatar-fire"></span><span class="avatar-particles" aria-hidden="true"></span><img src="/avatar.png" alt=""></button>
+  <dialog id="avatar-settings" class="avatar-dialog" aria-labelledby="avatar-settings-title">
+    <div class="avatar-dialog-header"><div><span class="avatar-kicker">КАГЭМИЮРА</span><h2 id="avatar-settings-title">Настройки аватара</h2></div><button id="avatar-settings-close" class="chat-close" aria-label="Закрыть настройки">×</button></div>
+    <div class="avatar-dialog-body"><nav id="avatar-tabs" class="avatar-tabs" aria-label="Разделы настроек"></nav><div id="avatar-controls" class="avatar-controls"></div></div>
+  </dialog>
 </body>
 </html>
