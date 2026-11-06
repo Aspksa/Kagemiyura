@@ -104,6 +104,10 @@ try {
  await page.locator('#brain-link-strength').evaluate(node=>{node.value='80';node.dispatchEvent(new Event('input',{bubbles:true}));});
  assert.equal(await page.locator('#brain-link-strength-value').textContent(),'80%');
  await page.locator('#brain-fit').click();
+ for(const theme of ['gold','rubric','ocean','violet','neon','paper']){
+   await page.locator(`[data-theme="${theme}"]`).click();
+   assert.equal(await page.locator(`[data-theme="${theme}"]`).getAttribute('aria-pressed'),'true');
+ }
  await page.locator('[data-layout=hex]').click();
  await page.locator('#brain-size').evaluate(node=>{node.value='70';node.dispatchEvent(new Event('input',{bubbles:true}));});
  const smallHex=await page.locator('#brain-canvas').evaluate(node=>node.toDataURL());

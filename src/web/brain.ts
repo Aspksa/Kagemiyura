@@ -2,11 +2,11 @@ import type { Conversation, ConversationSummary } from '../shared/types.js';
 
 type Layout = 'rings' | 'circle' | 'hex' | 'grid' | 'force' | 'hud';
 type Grouping = 'months' | 'all';
-type Theme = 'gold' | 'ocean' | 'violet';
+type Theme = 'gold' | 'ocean' | 'violet' | 'rubric' | 'neon' | 'paper';
 type BrainSettings = { layout: Layout; grouping: Grouping; theme: Theme; speed: number; size: number; labels: boolean; lineWidth: number; linkStrength: number };
 type Point = { item: ConversationSummary; x: number; y: number; radius: number; color: string };
 const defaults: BrainSettings = { layout:'rings', grouping:'months', theme:'ocean', speed:20, size:100, labels:true, lineWidth:100, linkStrength:45 };
-const palettes: Record<Theme, string[]> = { gold:['#d9bd7e','#e7d8a3','#b49b67','#f0cb8c','#a68b60'], ocean:['#45d0c4','#80bff1','#75e0b3','#8998e8','#aecfe7'], violet:['#bf9ceb','#edbad0','#a2baf1','#dab1e5','#dfc597'] };
+const palettes: Record<Theme, string[]> = { gold:['#d9bd7e','#e7d8a3','#b49b67','#f0cb8c','#a68b60'], ocean:['#45d0c4','#80bff1','#75e0b3','#8998e8','#aecfe7'], violet:['#bf9ceb','#edbad0','#a2baf1','#dab1e5','#dfc597'], rubric:['#f0a251','#f26c49','#d7509b','#f4ca8b','#a47bdc'], neon:['#c4ff4a','#f44ac5','#39dce9','#7eff6d','#fdaf4b'], paper:['#b88843','#5577a5','#8862a8','#c59d59','#75828b'] };
 function el<T extends HTMLElement>(id: string): T { const node = document.getElementById(id); if (!node) throw Error(`Missing ${id}`); return node as T; }
 function settings(): BrainSettings {
   const value = {...defaults};
@@ -14,7 +14,7 @@ function settings(): BrainSettings {
     const saved = JSON.parse(localStorage.getItem('kagemiyura-brain-v1') ?? '{}') as Partial<BrainSettings>;
     if (saved.layout && ['rings','circle','hex','grid','force','hud'].includes(saved.layout)) value.layout = saved.layout;
     if (saved.grouping && ['months','all'].includes(saved.grouping)) value.grouping = saved.grouping;
-    if (saved.theme && ['gold','ocean','violet'].includes(saved.theme)) value.theme = saved.theme;
+    if (saved.theme && ['gold','ocean','violet','rubric','neon','paper'].includes(saved.theme)) value.theme = saved.theme;
     if (typeof saved.speed === 'number' && Number.isFinite(saved.speed)) value.speed = Math.max(0, Math.min(100, saved.speed));
     if (typeof saved.size === 'number' && Number.isFinite(saved.size)) value.size = Math.max(70, Math.min(150, saved.size));
     if (typeof saved.lineWidth === 'number' && Number.isFinite(saved.lineWidth)) value.lineWidth=Math.max(20,Math.min(200,saved.lineWidth));
@@ -91,6 +91,17 @@ export function createBrain(openConversation: (id: string) => Promise<void>) {
   function draw() {
     if (!visible || width < 2) return;
     ctx.clearRect(0,0,width,height); ctx.fillStyle='#020d19'; ctx.fillRect(0,0,width,height);
+    // Reference-video background: a faint staggered hexagonal blueprint texture.
+    ctx.save();ctx.strokeStyle='rgba(38,82,102,.105)';ctx.lineWidth=.7;
+    const hexR=23,hexDx=hexR*3.3,hexDy=hexR*2.86;
+    for(let row=0;row<Math.ceil(height/hexDy)+1;row++)for(let col=0;col<Math.ceil(width/hexDx)+1;col++){
+      const x=col*hexDx+(row%2)*hexDx*.5,y=row*hexDy;
+      ctx.beginPath();for(let edge=0;edge<6;edge++){
+        const angle=edge*Math.PI/3-Math.PI/6;
+        const px=x+Math.cos(angle)*hexR,py=y+Math.sin(angle)*hexR;
+        if(edge===0)ctx.moveTo(px,py);else ctx.lineTo(px,py);
+      }ctx.closePath();ctx.stroke();
+    }ctx.restore();
     ctx.save(); ctx.translate(width/2+offsetX,height/2+offsetY); ctx.scale(scale,scale);
     ctx.lineWidth=config.lineWidth/100;
     const base = Math.max(100, Math.min(width,height)*(view==='command'?.34:.43)); const palette=palettes[config.theme]; const grouped=groups(); points=[];

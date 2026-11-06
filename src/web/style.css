@@ -75,3 +75,22 @@
 .brain-page[data-view=map] .brain-slider{accent-color:#4bc9bd}
 .brain-page[data-view=map] .brain-stage{background:#020d19}
 .brain-page[data-view=map] .brain-panel-head{color:#8bded5}
+
+/* Six theme cards, matching the compact visual palette selector in the reference. */
+.brain-themes{grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}
+.brain-themes button[data-theme=rubric] .brain-swatches i:nth-child(1){background:#f0a251}
+.brain-themes button[data-theme=rubric] .brain-swatches i:nth-child(2){background:#f26c49}
+.brain-themes button[data-theme=rubric] .brain-swatches i:nth-child(3){background:#d7509b}
+.brain-themes button[data-theme=rubric] .brain-swatches i:nth-child(4){background:#f4ca8b}
+.brain-themes button[data-theme=rubric] .brain-swatches i:nth-child(5){background:#a47bdc}
+.brain-themes button[data-theme=neon] .brain-swatches i:nth-child(1){background:#c4ff4a}
+.brain-themes button[data-theme=neon] .brain-swatches i:nth-child(2){background:#f44ac5}
+.brain-themes button[data-theme=neon] .brain-swatches i:nth-child(3){background:#39dce9}
+.brain-themes button[data-theme=neon] .brain-swatches i:nth-child(4){background:#7eff6d}
+.brain-themes button[data-theme=neon] .brain-swatches i:nth-child(5){background:#fdaf4b}
+.brain-themes button[data-theme=paper] .brain-swatches i:nth-child(1){background:#b88843}
+.brain-themes button[data-theme=paper] .brain-swatches i:nth-child(2){background:#5577a5}
+.brain-themes button[data-theme=paper] .brain-swatches i:nth-child(3){background:#8862a8}
+.brain-themes button[data-theme=paper] .brain-swatches i:nth-child(4){background:#c59d59}
+.brain-themes button[data-theme=paper] .brain-swatches i:nth-child(5){background:#75828b}
+@media(max-width:760px){.brain-themes{grid-template-columns:repeat(2,minmax(0,1fr))}}
