@@ -48,18 +48,6 @@ export function createBrain(openConversation: (id: string) => Promise<void>) {
     const next=Math.max(.4,Math.min(3,previous*factor));
     moveCamera(next,px-(px-fromX)*next/previous,py-(py-fromY)*next/previous);
   }
-  let cameraMotion: {fromScale:number;fromX:number;fromY:number;toScale:number;toX:number;toY:number;started:number} | undefined;
-  function moveCamera(toScale:number,toX:number,toY:number) {
-    const nextScale=Math.max(.4,Math.min(3,toScale));
-    if(reducedMotion.matches || config.speed===0 || !visible){cameraMotion=undefined;scale=nextScale;offsetX=toX;offsetY=toY;draw();return;}
-    cameraMotion={fromScale:scale,fromX:offsetX,fromY:offsetY,toScale:nextScale,toX,toY,started:performance.now()};
-  }
-  function zoomAt(factor:number,px=0,py=0) {
-    const previous=cameraMotion?.toScale??scale;
-    const fromX=cameraMotion?.toX??offsetX,fromY=cameraMotion?.toY??offsetY;
-    const next=Math.max(.4,Math.min(3,previous*factor));
-    moveCamera(next,px-(px-fromX)*next/previous,py-(py-fromY)*next/previous);
-  }
   let forceKey = ''; let forcePoints: {x:number;y:number}[] = [];
   const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
   const color = (index: number) => palettes[config.theme][index % 5]!;
@@ -407,7 +395,7 @@ export function createBrain(openConversation: (id: string) => Promise<void>) {
       if(progress>=1) transition=undefined;
       else{
         ctx.save();ctx.globalAlpha=(1-progress)*(1-progress);
-        ctx.drawImage(transition.image,0,0,width,height);ctx.restore();
+        ctx.drawImage(transition.image,0,0,transition.image.width,transition.image.height,0,0,width,height);ctx.restore();
       }
     }
   }
@@ -503,7 +491,7 @@ export function createBrain(openConversation: (id: string) => Promise<void>) {
   el('brain-plus').addEventListener('click',()=>zoomAt(1.2));el('brain-minus').addEventListener('click',()=>zoomAt(1/1.2));
   el('brain-center').addEventListener('click',()=>moveCamera(1,0,0));
   el('brain-fit').addEventListener('click',()=>{
-    if(!points.length){scale=1;offsetX=0;offsetY=0;draw();return;}
+    if(!points.length){moveCamera(1,0,0);return;}
     const xs=points.map(p=>p.x),ys=points.map(p=>p.y);
     const minX=Math.min(...xs),maxX=Math.max(...xs),minY=Math.min(...ys),maxY=Math.max(...ys);
     const contentWidth=Math.max(120,maxX-minX+100),contentHeight=Math.max(120,maxY-minY+100);
