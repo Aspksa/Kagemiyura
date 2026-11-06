@@ -235,6 +235,21 @@ export function createBrain(openConversation: (id: string) => Promise<void>) {
         else {const cols=Math.ceil(Math.sqrt(total));const spacing=Math.min(100,base*1.6/Math.max(cols-1,1));const row=Math.floor(index/cols);x=(index%cols-(cols-1)/2+(row%2)*.5)*spacing;y=(row-(Math.ceil(total/cols)-1)/2)*spacing*.87;}
         index++; const radius=Math.max(5,Math.min(12,(5+Math.log2(item.messageCount+1))*config.size/100)); const c=color(groupIndex); points.push({item,x,y,radius,color:c});
         if(config.layout==='hud' && view==='map'){ctx.strokeStyle=c+'55';ctx.lineWidth=.8;ctx.strokeRect(x-radius*2.4,y-radius*2.4,radius*4.8,radius*4.8);ctx.strokeStyle=c+'aa';ctx.beginPath();ctx.moveTo(x-radius*2.4,y-radius*1.5);ctx.lineTo(x-radius*2.4,y-radius*2.4);ctx.lineTo(x-radius*1.5,y-radius*2.4);ctx.stroke();}
+        if(config.layout==='circle' && view==='map' && !reducedMotion.matches && config.speed>0){
+          // Moving light packets travel along the group-to-node links.
+          const origin=clusterCenters[groupIndex]!;
+          const dx=x-origin.x,dy=y-origin.y;
+          const distance=Math.hypot(dx,dy);
+          if(distance>5){
+            const t=(phase*11+index*.173)%1;
+            const px=origin.x+dx*t,py=origin.y+dy*t;
+            ctx.save();
+            ctx.globalAlpha=.3+.7*Math.sin(t*Math.PI);
+            ctx.fillStyle=c;ctx.shadowColor=c;ctx.shadowBlur=10;
+            ctx.beginPath();ctx.arc(px,py,1.8,0,Math.PI*2);ctx.fill();
+            ctx.restore();
+          }
+        }
         if(config.layout==='circle' && view==='map'){
           // Video-style micro-square constellations around each conversation anchor.
           // Dot count is bounded so long conversations do not overload Canvas.
