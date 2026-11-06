@@ -115,6 +115,8 @@ export function createBrain(openConversation: (id: string) => Promise<void>) {
           x=(index%cols-(cols-1)/2+(row%2)*.48)*step;y=(row-(rows-1)/2)*step*.86;
           const c=color(groupIndex);ctx.beginPath();for(let j=0;j<6;j++){const a=Math.PI/3*j-Math.PI/6,px=x+Math.cos(a)*tile,py=y+Math.sin(a)*tile;j===0?ctx.moveTo(px,py):ctx.lineTo(px,py);}ctx.closePath();ctx.fillStyle=c+'0b';ctx.fill();ctx.strokeStyle=c+'55';ctx.lineWidth=.8;ctx.stroke();
           ctx.beginPath();ctx.arc(x,y,tile*.22,0,Math.PI*2);ctx.strokeStyle=c+'66';ctx.stroke();
+          ctx.beginPath();ctx.arc(x,y,tile*.34,0,Math.PI*2);ctx.strokeStyle=c+'28';ctx.stroke();
+          for(let edge=0;edge<6;edge++){const a=Math.PI/3*edge-Math.PI/6;ctx.beginPath();ctx.moveTo(x+Math.cos(a)*tile*.74,y+Math.sin(a)*tile*.74);ctx.lineTo(x+Math.cos(a)*tile*.88,y+Math.sin(a)*tile*.88);ctx.strokeStyle=c+'aa';ctx.lineWidth=1.3;ctx.stroke();}
           const dots=Math.min(item.messageCount,48);for(let k=0;k<dots;k++){const a=k*2.39996,rad=Math.sqrt((k+1)/49)*tile*.72;ctx.fillStyle=c+(k%4===0?'cc':'66');ctx.fillRect(x+Math.cos(a)*rad,y+Math.sin(a)*rad,2,2);}
           ctx.beginPath();ctx.arc(x,y,3,0,Math.PI*2);ctx.fillStyle=c;ctx.fill();
           if(config.labels){ctx.font='bold 9px Consolas, monospace';ctx.fillStyle=c;ctx.textAlign='center';ctx.fillText(item.title.length>22?item.title.slice(0,21)+'…':item.title,x,y-tile*.45,Math.max(20,tile*1.45));}
@@ -202,6 +204,14 @@ export function createBrain(openConversation: (id: string) => Promise<void>) {
   canvas.addEventListener('pointerleave',()=>{el('brain-tooltip').hidden=true;});
   canvas.addEventListener('pointerup',event=>{if(!drag)return;if(!drag.moved){const rect=canvas.getBoundingClientRect();const x=(event.clientX-rect.left-width/2-offsetX)/scale,y=(event.clientY-rect.top-height/2-offsetY)/scale;const hit=[...points].reverse().find(p=>Math.hypot(p.x-x,p.y-y)<Math.max(p.radius*2,12/scale));if(hit)void showDetails(hit.item);}drag=undefined;});
   canvas.addEventListener('pointercancel',()=>{drag=undefined;});
+  canvas.addEventListener('dblclick',event=>{
+    const rect=canvas.getBoundingClientRect();
+    const px=event.clientX-rect.left-width/2,py=event.clientY-rect.top-height/2;
+    const worldX=(px-offsetX)/scale,worldY=(py-offsetY)/scale;
+    const hit=[...points].reverse().find(p=>Math.hypot(p.x-worldX,p.y-worldY)<Math.max(p.radius*2,12/scale));
+    if(hit){scale=Math.min(3,scale*1.35);offsetX=-hit.x*scale;offsetY=-hit.y*scale;draw();}
+    else{scale=1;offsetX=0;offsetY=0;draw();}
+  });
   canvas.addEventListener('wheel',event=>{
     event.preventDefault();
     const rect=canvas.getBoundingClientRect();
