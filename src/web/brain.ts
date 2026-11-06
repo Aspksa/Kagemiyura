@@ -50,6 +50,7 @@ export function createBrain(openConversation: (id: string) => Promise<void>) {
   function setView(next:'command'|'map') {
     view=next;el('brain-page').dataset.view=view;el('brain-view-title').textContent=view==='command'?'Команда':'Второй мозг';
     el('brain-command-view').setAttribute('aria-pressed',String(view==='command'));el('brain-map-view').setAttribute('aria-pressed',String(view==='map'));
+    if(view==='command' && search.value.trim()){search.value='';void load();}
     requestAnimationFrame(()=>{if(visible)resize();});
   }
   function resize() {
@@ -93,7 +94,7 @@ export function createBrain(openConversation: (id: string) => Promise<void>) {
         let x=0,y=0;
         if(config.layout==='hex' && view==='map'){
           const cols=Math.max(1,Math.ceil(Math.sqrt(total)));const rows=Math.ceil(total/cols);const row=Math.floor(index/cols);
-          const tile=Math.min(145,Math.max(22,base/(cols*.9+.4)));const step=tile*1.65;
+          const tile=Math.min(145,Math.max(22,base/(cols*.9+.4)))*config.size/100;const step=tile*1.65;
           x=(index%cols-(cols-1)/2+(row%2)*.48)*step;y=(row-(rows-1)/2)*step*.86;
           const c=color(groupIndex);ctx.beginPath();for(let j=0;j<6;j++){const a=Math.PI/3*j-Math.PI/6,px=x+Math.cos(a)*tile,py=y+Math.sin(a)*tile;j===0?ctx.moveTo(px,py):ctx.lineTo(px,py);}ctx.closePath();ctx.fillStyle=c+'0b';ctx.fill();ctx.strokeStyle=c+'55';ctx.lineWidth=.8;ctx.stroke();
           ctx.beginPath();ctx.arc(x,y,tile*.22,0,Math.PI*2);ctx.strokeStyle=c+'66';ctx.stroke();
