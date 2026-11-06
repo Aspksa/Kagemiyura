@@ -87,7 +87,7 @@ export function createBrain(openConversation: (id: string) => Promise<void>) {
     const stroke=(radius:number, alpha:number) => {ctx.beginPath();ctx.arc(0,0,radius,0,Math.PI*2);ctx.strokeStyle=`rgba(164,186,183,${alpha})`;ctx.lineWidth=0.8;ctx.stroke();};
     if(view==='command'||config.layout==='rings'||config.layout==='circle')for (const ring of [.22,.27,.83,.89,.95,.98]) stroke(base*ring,0.10);
     // Decorative stars are background only, not data or inferred relationships.
-    for(let i=0;i<90;i++){ const x=((i*137)%997)/997*width-width/2;const y=((i*293)%991)/991*height-height/2;ctx.fillStyle='rgba(170,191,194,.12)';ctx.fillRect(x,y,i%9===0?2:1,i%9===0?2:1); }
+    for(let i=0;i<90;i++){ const x=((i*137)%997)/997*width-width/2;const y=((i*293)%991)/991*height-height/2;const twinkle=.08+(Math.sin(i*2.3+phase*5)+1)*.045;ctx.fillStyle=`rgba(170,191,194,${twinkle})`;ctx.fillRect(x,y,i%9===0?2:1,i%9===0?2:1); }
     const total=Math.max(items.length,1); let index=0;
     const clusterCount=Math.max(grouped.length,1);
     const clusterCenters=grouped.map((_,i)=>{
@@ -118,7 +118,7 @@ export function createBrain(openConversation: (id: string) => Promise<void>) {
           ctx.beginPath();ctx.arc(x,y,tile*.34,0,Math.PI*2);ctx.strokeStyle=c+'28';ctx.stroke();
           for(let edge=0;edge<6;edge++){const a=Math.PI/3*edge-Math.PI/6;ctx.beginPath();ctx.moveTo(x+Math.cos(a)*tile*.74,y+Math.sin(a)*tile*.74);ctx.lineTo(x+Math.cos(a)*tile*.88,y+Math.sin(a)*tile*.88);ctx.strokeStyle=c+'aa';ctx.lineWidth=1.3;ctx.stroke();}
           const dots=Math.min(item.messageCount,48);for(let k=0;k<dots;k++){const a=k*2.39996,rad=Math.sqrt((k+1)/49)*tile*.72;ctx.fillStyle=c+(k%4===0?'cc':'66');ctx.fillRect(x+Math.cos(a)*rad,y+Math.sin(a)*rad,2,2);}
-          ctx.beginPath();ctx.arc(x,y,3,0,Math.PI*2);ctx.fillStyle=c;ctx.fill();
+          ctx.beginPath();ctx.arc(x,y,3,0,Math.PI*2);ctx.fillStyle=c;ctx.shadowColor=c;ctx.shadowBlur=12;ctx.fill();ctx.shadowBlur=0;
           if(config.labels){ctx.font='bold 9px Consolas, monospace';ctx.fillStyle=c;ctx.textAlign='center';ctx.fillText(item.title.length>22?item.title.slice(0,21)+'…':item.title,x,y-tile*.45,Math.max(20,tile*1.45));}
           points.push({item,x,y,radius:tile*.48,color:c});index++;return;
         }
@@ -147,7 +147,8 @@ export function createBrain(openConversation: (id: string) => Promise<void>) {
         if(config.layout==='hex' && view==='map'){ctx.beginPath();for(let j=0;j<6;j++){const a=Math.PI/3*j;const px=x+Math.cos(a)*radius*2.1,py=y+Math.sin(a)*radius*2.1;j===0?ctx.moveTo(px,py):ctx.lineTo(px,py);}ctx.closePath();ctx.strokeStyle=c+'55';ctx.stroke();}
         ctx.beginPath();ctx.arc(x,y,radius*1.45,0,Math.PI*2);ctx.strokeStyle=c+'aa';ctx.lineWidth=.8;ctx.fillStyle='#04111b';ctx.fill();ctx.stroke();
         if(config.layout==='rings'||view==='command'){ctx.strokeStyle=c;ctx.lineWidth=.8;ctx.strokeRect(x-3,y-2.5,6,4.5);ctx.beginPath();ctx.moveTo(x-1,y+2);ctx.lineTo(x-2,y+4);ctx.stroke();}
-        else {ctx.beginPath();ctx.arc(x,y,radius*.7,0,Math.PI*2);ctx.fillStyle=c;ctx.shadowColor=c;ctx.shadowBlur=8;ctx.fill();ctx.shadowBlur=0;}
+        else {ctx.beginPath();ctx.arc(x,y,radius*.7,0,Math.PI*2);ctx.fillStyle=c;ctx.shadowColor=c;ctx.shadowBlur=8;ctx.fill();ctx.shadowBlur=0;
+          ctx.beginPath();ctx.arc(x,y,radius*2.1,0,Math.PI*2);ctx.strokeStyle=c+'22';ctx.lineWidth=.7;ctx.stroke();}
         if(config.labels && total<=70 && config.layout!=='rings' && view==='map'){ctx.font='10px Consolas, monospace';ctx.fillStyle='#c6c9c7';ctx.textAlign='center';ctx.fillText(item.title.length>24?item.title.slice(0,23)+'…':item.title,x,y+radius+15);}
       });
       if(config.grouping==='months' && list.length && config.layout==='rings' && grouped.length<=24) {const start=index-list.length;const a=(start+(list.length-1)/2)/total*Math.PI*2-Math.PI/2+phase;ctx.font='9px Consolas, monospace';ctx.fillStyle=color(groupIndex);ctx.textAlign='center';ctx.fillText(group.toLocaleUpperCase('ru-RU'),Math.cos(a)*base*.76,Math.sin(a)*base*.76);}
@@ -202,6 +203,7 @@ export function createBrain(openConversation: (id: string) => Promise<void>) {
     tip.hidden=true;const dx=event.clientX-drag.x,dy=event.clientY-drag.y;if(Math.hypot(event.clientX-drag.startX,event.clientY-drag.startY)>4)drag.moved=true;offsetX+=dx;offsetY+=dy;drag.x=event.clientX;drag.y=event.clientY;draw();
   });
   canvas.addEventListener('pointerleave',()=>{el('brain-tooltip').hidden=true;});
+  canvas.addEventListener('lostpointercapture',()=>{drag=undefined;});
   canvas.addEventListener('pointerup',event=>{if(!drag)return;if(!drag.moved){const rect=canvas.getBoundingClientRect();const x=(event.clientX-rect.left-width/2-offsetX)/scale,y=(event.clientY-rect.top-height/2-offsetY)/scale;const hit=[...points].reverse().find(p=>Math.hypot(p.x-x,p.y-y)<Math.max(p.radius*2,12/scale));if(hit)void showDetails(hit.item);}drag=undefined;});
   canvas.addEventListener('pointercancel',()=>{drag=undefined;});
   canvas.addEventListener('dblclick',event=>{
@@ -254,6 +256,9 @@ export function createBrain(openConversation: (id: string) => Promise<void>) {
   el('brain-export').addEventListener('click',()=>{const link=document.createElement('a');link.download='kagemiyura-memory.png';link.href=canvas.toDataURL('image/png');link.click();});
   el('brain-details-close').addEventListener('click',()=>dialog.close());dialog.addEventListener('click',e=>{if(e.target===dialog)dialog.close();});
   el('brain-open-chat').addEventListener('click',()=>{if(!selected)return;const id=selected.id;dialog.close();void openConversation(id).catch(()=>{el('brain-status').textContent='Не удалось открыть разговор. Попробуй ещё раз.';});});
-  window.addEventListener('resize',()=>{if(visible)resize();});syncControls();
+  window.addEventListener('resize',()=>{if(visible)resize();});
+  const observer=new ResizeObserver(()=>{if(visible)resize();});
+  observer.observe(stage);
+  syncControls();
   return {setVisible(value:boolean){if(value===visible)return;visible=value;if(value){resize();void load();updateClock();clock=setInterval(updateClock,1000);last=0;frame=requestAnimationFrame(animate);}else{cancelAnimationFrame(frame);clearInterval(clock);last=0;}}};
 }
