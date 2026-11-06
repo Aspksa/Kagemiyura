@@ -410,7 +410,10 @@ function applyAvatar() {
     svg.setAttribute('viewBox','0 0 24 24'); svg.setAttribute('aria-hidden','true');
     const path = document.createElementNS('http://www.w3.org/2000/svg','path');
     const shape = v.particles === 'sakura' ? 'M12 21C9 17 3 15 4 9C5 3 10 2 12 7C14 2 19 3 20 9C21 15 15 18 12 21Z' : v.particles === 'fireflies' ? 'M12 3C14 7 15 8 15 11C15 14 14 17 12 20C10 17 9 14 9 11C9 8 10 7 12 3Z' : v.particles === 'embers' ? 'M12 2C14 7 19 9 18 15C18 20 15 22 12 22C8 22 5 19 6 15C7 11 10 8 12 2Z' : 'M12 1L14 9L22 12L14 14L12 23L10 14L2 12L10 9Z';
-    path.setAttribute('d',shape); svg.append(path); spark.append(svg);
+    path.setAttribute('d',shape); svg.append(path);
+    const detail = document.createElementNS('http://www.w3.org/2000/svg','path');
+    detail.setAttribute('d', v.particles === 'sakura' ? 'M12 20C12 15 9 11 7 8M12 16C14 12 16 10 18 8' : v.particles === 'fireflies' ? 'M10 10C5 5 2 8 7 12M14 10C19 5 22 8 17 12M10 15H14' : v.particles === 'embers' ? 'M12 19C9 17 10 14 12 11C13 14 15 15 14 18' : 'M12 5V19M5 12H19');
+    detail.setAttribute('fill','none'); detail.setAttribute('stroke','#fff'); detail.setAttribute('stroke-width','1'); detail.setAttribute('stroke-linecap','round'); svg.append(detail); spark.append(svg);
     spark.style.left = `${5 + (i * 37 % 90)}%`; spark.style.animationDelay = `${-(i * 0.61)}s`;
     spark.style.animationDuration = `${(3 + (i % 4)) * 100 / v.particleSpeed}s`; container.append(spark);
   }
