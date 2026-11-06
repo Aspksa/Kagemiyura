@@ -278,13 +278,22 @@ export function createBrain(openConversation: (id: string) => Promise<void>) {
           points.push({item,x,y,radius:tile*.90,color:c});index++;return;
         }
         if(config.layout==='rings' || view==='command') {
-          const a=index/total*Math.PI*2-Math.PI/2+phase;
+          // Stable angular placement: camera motion must not spin the data itself.
+          const a=index/total*Math.PI*2-Math.PI/2;
           const outer=base*(.76+(index%4)*.064); x=Math.cos(a)*outer; y=Math.sin(a)*outer;
           const mid=base*.47; const innerX=Math.cos(a)*mid,innerY=Math.sin(a)*mid; const c=color(groupIndex);
           ctx.beginPath();ctx.moveTo(innerX,innerY);ctx.lineTo(x,y);ctx.strokeStyle=c+'25';ctx.lineWidth=.65*config.lineWidth/100;ctx.stroke();
-          const dots=Math.min(item.messageCount,48);
-          for(let k=0;k<dots;k++) {const row=Math.floor(k/6),col=k%6;const radius=base*(.32+row*.023);const delta=(col-2.5)*Math.min(.018,1.4/total);const px=Math.cos(a+delta)*radius,py=Math.sin(a+delta)*radius;
-            ctx.fillStyle=c+(k%7===0?'cc':'66');ctx.fillRect(px-1.1,py-1.1,2.2,2.2);
+          const dots=Math.min(item.messageCount,detailLevel===2?96:detailLevel===1?64:32);
+          const columns=detailLevel===2?8:6;
+          const spacing=Math.min(.024,1.25/total);
+          for(let k=0;k<dots;k++) {
+            const row=Math.floor(k/columns),col=k%columns;
+            const radius=base*(.31+row*(detailLevel===2?.014:.021));
+            const delta=(col-(columns-1)/2)*spacing;
+            const px=Math.cos(a+delta)*radius,py=Math.sin(a+delta)*radius;
+            const dotSize=(detailLevel===2?1.5:2.2)/pixelScale;
+            ctx.fillStyle=c+(k%7===0?'cc':'66');
+            ctx.fillRect(px-dotSize/2,py-dotSize/2,dotSize,dotSize);
           }
           const innerRadius=Math.max(3,Math.min(7,config.size/100*4));
           ctx.beginPath();ctx.arc(innerX,innerY,innerRadius,0,Math.PI*2);ctx.fillStyle=c;ctx.fill();
