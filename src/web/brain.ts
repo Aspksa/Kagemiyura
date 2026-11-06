@@ -1,6 +1,6 @@
 import type { Conversation, ConversationSummary } from '../shared/types.js';
 
-type Layout = 'rings' | 'circle' | 'hex' | 'grid';
+type Layout = 'rings' | 'circle' | 'hex' | 'grid' | 'force' | 'hud';
 type Grouping = 'months' | 'all';
 type Theme = 'gold' | 'ocean' | 'violet';
 type BrainSettings = { layout: Layout; grouping: Grouping; theme: Theme; speed: number; size: number; labels: boolean };
@@ -12,7 +12,7 @@ function settings(): BrainSettings {
   const value = {...defaults};
   try {
     const saved = JSON.parse(localStorage.getItem('kagemiyura-brain-v1') ?? '{}') as Partial<BrainSettings>;
-    if (saved.layout && ['rings','circle','hex','grid'].includes(saved.layout)) value.layout = saved.layout;
+    if (saved.layout && ['rings','circle','hex','grid','force','hud'].includes(saved.layout)) value.layout = saved.layout;
     if (saved.grouping && ['months','all'].includes(saved.grouping)) value.grouping = saved.grouping;
     if (saved.theme && ['gold','ocean','violet'].includes(saved.theme)) value.theme = saved.theme;
     if (typeof saved.speed === 'number' && Number.isFinite(saved.speed)) value.speed = Math.max(0, Math.min(100, saved.speed));
@@ -32,6 +32,7 @@ export function createBrain(openConversation: (id: string) => Promise<void>) {
   let width = 1; let height = 1; let scale = 1; let offsetX = 0; let offsetY = 0; let phase = 0; let last = 0; let frame = 0; let visible = false;
   let selected: ConversationSummary | undefined; let drag: { x:number; y:number; startX:number; startY:number; moved:boolean } | undefined;
   let view: 'command'|'map' = 'command'; let clock: ReturnType<typeof setInterval> | undefined;
+  let forceKey = ''; let forcePoints: {x:number;y:number}[] = [];
   const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
   const color = (index: number) => palettes[config.theme][index % 5]!;
   function syncControls() {
@@ -66,13 +67,24 @@ export function createBrain(openConversation: (id: string) => Promise<void>) {
     for (const item of items) { const key=config.grouping==='all'?'Разговоры':monthKey(item); const list=result.get(key) ?? []; list.push(item); result.set(key,list); }
     return [...result.entries()];
   }
+  function forceLayout(total:number, base:number) {
+    const key=`${items.map(item=>item.id).join(',')}:${Math.round(base)}`;if(key===forceKey)return forcePoints;
+    forceKey=key;forcePoints=Array.from({length:total},(_,i)=>{const a=i*2.39996,r=Math.sqrt((i+1)/total)*base*.72;return {x:Math.cos(a)*r,y:Math.sin(a)*r};});
+    // A bounded, local repulsion layout; proximity is not a semantic relation.
+    if(total<=150)for(let iteration=0;iteration<35;iteration++)for(let i=0;i<total;i++){
+      const p=forcePoints[i]!;let fx=-p.x*.002,fy=-p.y*.002;
+      for(let j=i+1;j<total;j++){const q=forcePoints[j]!,dx=p.x-q.x,dy=p.y-q.y,d2=Math.max(dx*dx+dy*dy,100);if(d2>10000)continue;const push=65/d2;fx+=dx*push;fy+=dy*push;q.x-=dx*push;q.y-=dy*push;}
+      p.x+=Math.max(-4,Math.min(4,fx));p.y+=Math.max(-4,Math.min(4,fy));
+    }
+    return forcePoints;
+  }
   function draw() {
     if (!visible || width < 2) return;
     ctx.clearRect(0,0,width,height); ctx.fillStyle='#020d19'; ctx.fillRect(0,0,width,height);
     ctx.save(); ctx.translate(width/2+offsetX,height/2+offsetY); ctx.scale(scale,scale);
     const base = Math.max(100, Math.min(width,height)*(view==='command'?.34:.43)); const palette=palettes[config.theme]; const grouped=groups(); points=[];
     const stroke=(radius:number, alpha:number) => {ctx.beginPath();ctx.arc(0,0,radius,0,Math.PI*2);ctx.strokeStyle=`rgba(164,186,183,${alpha})`;ctx.lineWidth=0.8;ctx.stroke();};
-    for (const ring of [.22,.27,.83,.89,.95,.98]) stroke(base*ring,0.10);
+    if(view==='command'||config.layout==='rings'||config.layout==='circle')for (const ring of [.22,.27,.83,.89,.95,.98]) stroke(base*ring,0.10);
     // Decorative stars are background only, not data or inferred relationships.
     for(let i=0;i<90;i++){ const x=((i*137)%997)/997*width-width/2;const y=((i*293)%991)/991*height-height/2;ctx.fillStyle='rgba(170,191,194,.12)';ctx.fillRect(x,y,i%9===0?2:1,i%9===0?2:1); }
     const total=Math.max(items.length,1); let index=0;
@@ -106,9 +118,11 @@ export function createBrain(openConversation: (id: string) => Promise<void>) {
           if(config.labels && total<=60){ctx.font='bold 9px Consolas, monospace';ctx.fillStyle=c;ctx.textAlign=Math.cos(a)<-.25?'right':Math.cos(a)>.25?'left':'center';ctx.fillText(item.title.length>20?item.title.slice(0,19)+'…':item.title,Math.cos(a)*base*.64,Math.sin(a)*base*.64);}
         }
         else if(config.layout==='circle') {const a=index/total*Math.PI*2-Math.PI/2+phase;x=Math.cos(a)*base;y=Math.sin(a)*base;}
-        else if(config.layout==='grid') {const cols=Math.ceil(Math.sqrt(total)); const spacing=Math.min(95,base*1.6/Math.max(cols-1,1)); x=(index%cols-(cols-1)/2)*spacing;y=(Math.floor(index/cols)-(Math.ceil(total/cols)-1)/2)*spacing;}
+        else if(config.layout==='force') {const p=forceLayout(total,base)[index]!;x=p.x;y=p.y;}
+        else if(config.layout==='grid'||config.layout==='hud') {const cols=Math.ceil(Math.sqrt(total)); const spacing=Math.min(95,base*1.6/Math.max(cols-1,1)); x=(index%cols-(cols-1)/2)*spacing;y=(Math.floor(index/cols)-(Math.ceil(total/cols)-1)/2)*spacing;}
         else {const cols=Math.ceil(Math.sqrt(total));const spacing=Math.min(100,base*1.6/Math.max(cols-1,1));const row=Math.floor(index/cols);x=(index%cols-(cols-1)/2+(row%2)*.5)*spacing;y=(row-(Math.ceil(total/cols)-1)/2)*spacing*.87;}
         index++; const radius=Math.max(5,Math.min(12,(5+Math.log2(item.messageCount+1))*config.size/100)); const c=color(groupIndex); points.push({item,x,y,radius,color:c});
+        if(config.layout==='hud' && view==='map'){ctx.strokeStyle=c+'55';ctx.lineWidth=.8;ctx.strokeRect(x-radius*2.4,y-radius*2.4,radius*4.8,radius*4.8);ctx.strokeStyle=c+'aa';ctx.beginPath();ctx.moveTo(x-radius*2.4,y-radius*1.5);ctx.lineTo(x-radius*2.4,y-radius*2.4);ctx.lineTo(x-radius*1.5,y-radius*2.4);ctx.stroke();}
         if(config.layout==='circle' && view==='map'){ctx.beginPath();ctx.moveTo(0,0);ctx.lineTo(x,y);ctx.strokeStyle='rgba(140,170,175,.10)';ctx.lineWidth=.7;ctx.stroke();}
         if(config.layout==='hex' && view==='map'){ctx.beginPath();for(let j=0;j<6;j++){const a=Math.PI/3*j;const px=x+Math.cos(a)*radius*2.1,py=y+Math.sin(a)*radius*2.1;j===0?ctx.moveTo(px,py):ctx.lineTo(px,py);}ctx.closePath();ctx.strokeStyle=c+'55';ctx.stroke();}
         ctx.beginPath();ctx.arc(x,y,radius*1.45,0,Math.PI*2);ctx.strokeStyle=c+'aa';ctx.lineWidth=.8;ctx.fillStyle='#04111b';ctx.fill();ctx.stroke();
@@ -162,7 +176,12 @@ export function createBrain(openConversation: (id: string) => Promise<void>) {
     } catch {if(id===detailId && dialog.open)el('brain-details-preview').textContent='Не удалось загрузить разговор.';}
   }
   canvas.addEventListener('pointerdown',event=>{if(event.button!==0)return;drag={x:event.clientX,y:event.clientY,startX:event.clientX,startY:event.clientY,moved:false};canvas.setPointerCapture(event.pointerId);});
-  canvas.addEventListener('pointermove',event=>{if(!drag)return;const dx=event.clientX-drag.x,dy=event.clientY-drag.y;if(Math.hypot(event.clientX-drag.startX,event.clientY-drag.startY)>4)drag.moved=true;offsetX+=dx;offsetY+=dy;drag.x=event.clientX;drag.y=event.clientY;draw();});
+  canvas.addEventListener('pointermove',event=>{
+    const tip=el('brain-tooltip');
+    if(!drag){const rect=canvas.getBoundingClientRect();const px=event.clientX-rect.left,py=event.clientY-rect.top;const x=(px-width/2-offsetX)/scale,y=(py-height/2-offsetY)/scale;const hit=[...points].reverse().find(p=>Math.hypot(p.x-x,p.y-y)<Math.max(p.radius*2,12/scale));tip.hidden=!hit;if(hit){tip.textContent=`${hit.item.title} · Сообщений: ${hit.item.messageCount}`;tip.style.left=`${Math.max(8,Math.min(width-210,px+14))}px`;tip.style.top=`${Math.max(8,Math.min(height-55,py+14))}px`;}return;}
+    tip.hidden=true;const dx=event.clientX-drag.x,dy=event.clientY-drag.y;if(Math.hypot(event.clientX-drag.startX,event.clientY-drag.startY)>4)drag.moved=true;offsetX+=dx;offsetY+=dy;drag.x=event.clientX;drag.y=event.clientY;draw();
+  });
+  canvas.addEventListener('pointerleave',()=>{el('brain-tooltip').hidden=true;});
   canvas.addEventListener('pointerup',event=>{if(!drag)return;if(!drag.moved){const rect=canvas.getBoundingClientRect();const x=(event.clientX-rect.left-width/2-offsetX)/scale,y=(event.clientY-rect.top-height/2-offsetY)/scale;const hit=[...points].reverse().find(p=>Math.hypot(p.x-x,p.y-y)<Math.max(p.radius*2,12/scale));if(hit)void showDetails(hit.item);}drag=undefined;});
   canvas.addEventListener('pointercancel',()=>{drag=undefined;});
   canvas.addEventListener('wheel',event=>{event.preventDefault();scale=Math.max(.4,Math.min(3,scale*(event.deltaY<0?1.12:.89)));draw();},{passive:false});

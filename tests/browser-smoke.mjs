@@ -73,7 +73,6 @@ try {
  await page.locator('[data-nav=brain]').click();
  await page.locator('#brain-page').waitFor({state:'visible'});
  await page.locator('#command-list button').first().waitFor();
- console.log('COMMAND_SHOT:'+(await page.screenshot({type:'jpeg',quality:35})).toString('base64'));
  assert.equal(await page.locator('#brain-command-view').getAttribute('aria-pressed'),'true');
  await page.locator('#command-open-map').click();
  await page.locator('#brain-list button').first().waitFor();
@@ -83,6 +82,10 @@ try {
  assert.equal(await page.locator('#brain-panel-toggle').getAttribute('aria-expanded'),'false');
  await page.locator('#brain-panel-toggle').click();
  assert.equal(await page.locator('#brain-panel-toggle').getAttribute('aria-expanded'),'true');
+ await page.locator('[data-layout=force]').click();
+ assert.equal(await page.locator('[data-layout=force]').getAttribute('aria-pressed'),'true');
+ await page.locator('[data-layout=hud]').click();
+ assert.equal(await page.locator('[data-layout=hud]').getAttribute('aria-pressed'),'true');
  await page.locator('[data-layout=hex]').click();
  await page.locator('[data-theme=ocean]').click();
  await page.locator('#brain-save').click();
@@ -96,7 +99,6 @@ try {
  await page.mouse.click(box.x+box.width/2,box.y+box.height/2);
  await page.locator('#brain-details').waitFor({state:'visible'});
  await page.locator('#brain-details-close').click();
- console.log('HEX_SHOT:'+(await page.screenshot({type:'jpeg',quality:35})).toString('base64'));
  await page.locator('#brain-search').fill('ПОМНИ');
  await page.locator('#brain-list button').first().waitFor();
  await page.locator('#brain-list button').first().click();
