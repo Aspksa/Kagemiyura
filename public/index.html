@@ -29,7 +29,7 @@
         <canvas id="brain-canvas" tabindex="0" aria-label="Карта сохранённых разговоров. Для выбора разговора используйте список в настройках карты."></canvas>
         <div id="brain-tooltip" class="brain-tooltip" hidden></div>
         <div id="brain-status" class="brain-status" role="status"></div>
-        <div class="brain-zoom"><button id="brain-minus" aria-label="Уменьшить">−</button><button id="brain-plus" aria-label="Увеличить">+</button><button id="brain-center" aria-label="Вернуть в центр">⌾</button></div>
+        <div class="brain-zoom"><button id="brain-minus" aria-label="Уменьшить">−</button><button id="brain-plus" aria-label="Увеличить">+</button><button id="brain-center" aria-label="Вернуть в центр">⌾</button><button id="brain-fit" aria-label="Развернуть карту">⛶</button></div>
       </div>
       <aside class="brain-command-right"><div class="brain-command-card command-summary"><div class="brain-card-title">● <span>ПАМЯТЬ</span><small>ЛОКАЛЬНО</small></div><strong id="command-total">0</strong><p>загруженных разговоров</p><div class="command-separator"></div><div class="brain-card-title">● <span>НЕДАВНИЕ</span></div><div id="command-recent" class="command-recent"></div></div><div class="brain-command-card"><div class="brain-card-title">● <span>КАРТА ПАМЯТИ</span></div><p class="command-description">Исследуй разговоры по датам и открывай их на карте.</p><button id="command-open-map" class="command-map-button">ОТКРЫТЬ КАРТУ ↗</button></div></aside>
       <aside class="brain-panel" aria-label="Настройки карты">
@@ -39,6 +39,8 @@
         <p class="brain-label">ВИД КАРТЫ</p><div class="brain-options" id="brain-grouping"><button data-group="months">По месяцам</button><button data-group="all">Все разговоры</button></div>
         <label class="brain-slider">Скорость вращения <output id="brain-speed-value"></output><input id="brain-speed" type="range" min="0" max="100" value="20"></label>
         <label class="brain-slider">Размер узлов <output id="brain-size-value"></output><input id="brain-size" type="range" min="70" max="150" value="100"></label>
+        <label class="brain-slider">Толщина линий <output id="brain-line-width-value"></output><input id="brain-line-width" type="range" min="20" max="200" value="100"></label>
+        <label class="brain-slider">Сила связей <output id="brain-link-strength-value"></output><input id="brain-link-strength" type="range" min="0" max="100" value="45"></label>
         <label class="brain-check"><input id="brain-labels" type="checkbox" checked> Показывать названия</label>
         <p class="brain-label">ТЕМА</p><div class="brain-themes" id="brain-themes"><button data-theme="gold"><span class="brain-swatches"><i></i><i></i><i></i><i></i><i></i></span>Золото</button><button data-theme="ocean"><span class="brain-swatches"><i></i><i></i><i></i><i></i><i></i></span>Океан</button><button data-theme="violet"><span class="brain-swatches"><i></i><i></i><i></i><i></i><i></i></span>Сумерки</button></div>
         <div class="brain-actions"><button id="brain-save" class="primary">Сохранить вид</button><button id="brain-export" class="secondary">Скачать PNG</button></div>
