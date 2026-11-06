@@ -198,7 +198,20 @@ export function createBrain(openConversation: (id: string) => Promise<void>) {
           points.push({item,x:innerX,y:innerY,radius:innerRadius+3,color:c});
           if(config.labels && total<=60){ctx.font='bold 9px Consolas, monospace';ctx.fillStyle=c;ctx.textAlign=Math.cos(a)<-.25?'right':Math.cos(a)>.25?'left':'center';ctx.fillText(item.title.length>20?item.title.slice(0,19)+'…':item.title,Math.cos(a)*base*.64,Math.sin(a)*base*.64);}
         }
-        else if(config.layout==='circle') {const center=clusterCenters[groupIndex]!;const a=localIndex/Math.max(list.length,1)*Math.PI*2-Math.PI/2+phase;const radius=Math.min(base*.27,Math.max(19,base*.09+Math.sqrt(list.length)*8));x=center.x+Math.cos(a)*radius*.78;y=center.y+Math.sin(a)*radius*.78;}
+        else if(config.layout==='circle') {
+          // Reference video: separate constellation islands rather than overlapping orbits.
+          const cols=Math.max(1,Math.ceil(Math.sqrt(clusterCount*1.45)));
+          const rows=Math.ceil(clusterCount/cols);
+          const col=groupIndex%cols,row=Math.floor(groupIndex/cols);
+          const stepX=Math.max(125,Math.min(240,base*1.75/Math.max(cols-1,1)));
+          const stepY=Math.max(115,Math.min(205,base*1.75/Math.max(rows-1,1)));
+          const centerX=(col-(cols-1)/2)*stepX+(row%2)*stepX*.17;
+          const centerY=(row-(rows-1)/2)*stepY;
+          const angle=localIndex*2.399963229728653;
+          const radius=Math.sqrt((localIndex+.5)/Math.max(list.length,1))*Math.min(48,stepX*.24);
+          x=centerX+Math.cos(angle)*radius;
+          y=centerY+Math.sin(angle)*radius;
+        }
         else if(config.layout==='force') {const p=forceLayout(total,base)[index]!;x=p.x;y=p.y;}
         else if(config.layout==='grid'||config.layout==='hud') {const cols=Math.ceil(Math.sqrt(total)); const spacing=Math.min(95,base*1.6/Math.max(cols-1,1)); x=(index%cols-(cols-1)/2)*spacing;y=(Math.floor(index/cols)-(Math.ceil(total/cols)-1)/2)*spacing;}
         else {const cols=Math.ceil(Math.sqrt(total));const spacing=Math.min(100,base*1.6/Math.max(cols-1,1));const row=Math.floor(index/cols);x=(index%cols-(cols-1)/2+(row%2)*.5)*spacing;y=(row-(Math.ceil(total/cols)-1)/2)*spacing*.87;}
