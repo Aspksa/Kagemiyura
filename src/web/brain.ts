@@ -118,6 +118,7 @@ export function createBrain(openConversation: (id: string) => Promise<void>) {
           const c=color(groupIndex);ctx.beginPath();for(let j=0;j<6;j++){const a=Math.PI/3*j-Math.PI/6,px=x+Math.cos(a)*tile,py=y+Math.sin(a)*tile;j===0?ctx.moveTo(px,py):ctx.lineTo(px,py);}ctx.closePath();ctx.fillStyle=c+'0b';ctx.fill();ctx.strokeStyle=c+'55';ctx.lineWidth=.8;ctx.stroke();
           ctx.beginPath();ctx.arc(x,y,tile*.22,0,Math.PI*2);ctx.strokeStyle=c+'66';ctx.stroke();
           ctx.beginPath();ctx.arc(x,y,tile*.34,0,Math.PI*2);ctx.strokeStyle=c+'28';ctx.stroke();
+          ctx.beginPath();ctx.arc(x,y,tile*.48,0,Math.PI*2);ctx.strokeStyle=c+'19';ctx.stroke();
           for(let edge=0;edge<6;edge++){const a=Math.PI/3*edge-Math.PI/6;ctx.beginPath();ctx.moveTo(x+Math.cos(a)*tile*.74,y+Math.sin(a)*tile*.74);ctx.lineTo(x+Math.cos(a)*tile*.88,y+Math.sin(a)*tile*.88);ctx.strokeStyle=c+'aa';ctx.lineWidth=1.3;ctx.stroke();}
           const dots=Math.min(item.messageCount,48);for(let k=0;k<dots;k++){const a=k*2.39996,rad=Math.sqrt((k+1)/49)*tile*.72;ctx.fillStyle=c+(k%4===0?'cc':'66');ctx.fillRect(x+Math.cos(a)*rad,y+Math.sin(a)*rad,2,2);}
           ctx.beginPath();ctx.arc(x,y,3,0,Math.PI*2);ctx.fillStyle=c;ctx.shadowColor=c;ctx.shadowBlur=12;ctx.fill();ctx.shadowBlur=0;
