@@ -6,6 +6,7 @@ import type { ChatMessage } from '../shared/types.js';
 import { SettingsStore } from './settings.js';
 import { CloudClient } from './cloud.js';
 import { AppError, publicError } from './errors.js';
+import { ConversationStore } from './conversations.js';
 
 interface Options { dataDir: string; publicDir: string; instanceId: string; cloud?: CloudClient }
 const mime: Record<string, string> = {
@@ -15,8 +16,11 @@ const mime: Record<string, string> = {
 export function createApp(options: Options) {
   const settings = new SettingsStore(options.dataDir);
   const cloud = options.cloud ?? new CloudClient();
+  const conversations = new ConversationStore(options.dataDir);
   let busy = false;
+  let activeConversation: string | undefined;
   const server = createServer((request, response) => { void route(request, response); });
+  server.once('close', () => conversations.close());
   server.requestTimeout = 150000;
   server.headersTimeout = 15000;
   const publicDir = resolve(options.publicDir);
@@ -37,7 +41,7 @@ export function createApp(options: Options) {
       const url = new URL(req.url ?? '/', `http://${req.headers.host}`);
       const path = url.pathname;
       if (path === '/api/health' && req.method === 'GET') {
-        return json(res, 200, { app: 'Kagemiyura', version: '0.1.0', instanceId: options.instanceId, keyConfigured: (await settings.public()).keyConfigured });
+        return json(res, 200, { app: 'Kagemiyura', version: '0.2.0', instanceId: options.instanceId, keyConfigured: (await settings.public()).keyConfigured });
       }
       if (path === '/api/settings' && req.method === 'GET') return json(res, 200, await settings.public());
       if (path === '/api/settings' && req.method === 'PUT') return json(res, 200, await settings.update(await body(req)));
@@ -49,26 +53,71 @@ export function createApp(options: Options) {
         await cloud.check(await settings.read(), abort.signal);
         return json(res, 200, { message: 'Модель отвечает. Ключ и доступ проверены.' });
       }
+      if (path === '/api/conversations' && req.method === 'GET') {
+        const query = url.searchParams.get('q') ?? '';
+        const offset = Number(url.searchParams.get('offset') ?? '0');
+        if (query.length > 200 || !Number.isSafeInteger(offset) || offset < 0) throw new AppError(400, 'Некорректные параметры поиска.');
+        return json(res, 200, conversations.list(query, offset));
+      }
+      if (path === '/api/conversations' && req.method === 'POST') {
+        await body(req);
+        return json(res, 201, conversations.create());
+      }
+      const conversationRoute = /^\/api\/conversations\/([a-f0-9-]{36})$/.exec(path);
+      if (conversationRoute) {
+        const id = conversationRoute[1]!;
+        if (req.method === 'GET') return json(res, 200, conversations.get(id));
+        if (req.method === 'PATCH') {
+          const input = await body(req) as { title?: unknown } | null;
+          return json(res, 200, conversations.rename(id, input?.title));
+        }
+        if (req.method === 'DELETE') {
+          if (activeConversation === id) throw new AppError(409, 'Сначала остановите ответ в этом разговоре.');
+          conversations.delete(id);
+          return json(res, 200, { deleted: true });
+        }
+        throw new AppError(405, 'Метод не поддерживается.');
+      }
       if (path === '/api/chat' && req.method === 'POST') {
         if (busy) throw new AppError(409, 'Ответ уже формируется. Дождитесь завершения или остановите его.');
-        const messages = validateMessages(await body(req));
+        const input = await body(req) as Record<string, unknown> | null;
+        const id = input?.conversationId;
+        if (id !== undefined && (typeof id !== 'string' || !/^[a-f0-9-]{36}$/.test(id))) throw new AppError(400, 'Некорректный разговор.');
+        const legacy = id === undefined ? validateMessages(input) : undefined;
         const config = await settings.read();
+        if (!config.apiKey || !config.model) throw new AppError(400, 'Сначала сохраните ключ и модель в настройках.');
         if (busy) throw new AppError(409, 'Ответ уже формируется.');
+        const turn = typeof id === 'string' ? conversations.begin(id, input?.content) : undefined;
         busy = true;
+        activeConversation = typeof id === 'string' ? id : undefined;
+        let answer = '';
+        let checkpoint = 0;
+        let complete = false;
         try {
           // Do not commit SSE headers until configuration has been validated by the generator.
-          for await (const text of cloud.chat(config, messages, abort.signal)) {
+          for await (const text of cloud.chat(config, turn?.context ?? legacy!, abort.signal)) {
+            answer += text;
+            if (turn && Date.now() - checkpoint >= 500) {
+              conversations.save(turn.messageId, answer, 'pending');
+              checkpoint = Date.now();
+            }
             if (!res.headersSent) res.writeHead(200, { 'Content-Type': 'text/event-stream; charset=utf-8', 'X-Accel-Buffering': 'no' });
             if (!res.write(`data: ${JSON.stringify({ text })}\n\n`)) await once(res, 'drain', { signal: abort.signal });
           }
+          if (!answer) throw new AppError(502, 'Модель вернула пустой ответ. Попробуйте другую модель.');
+          if (turn) conversations.save(turn.messageId, answer, 'complete');
+          complete = true;
           if (!res.headersSent) res.writeHead(200, { 'Content-Type': 'text/event-stream; charset=utf-8' });
           res.end(`data: ${JSON.stringify({ done: true })}\n\n`);
-        } finally { busy = false; }
+        } finally {
+          try { if (turn && !complete) conversations.save(turn.messageId, answer, answer || abort.signal.aborted ? 'interrupted' : 'error'); }
+          finally { busy = false; activeConversation = undefined; }
+        }
         return;
       }
       if (path.startsWith('/api/')) throw new AppError(404, 'Метод не найден.');
       if (req.method !== 'GET' && req.method !== 'HEAD') throw new AppError(405, 'Метод не поддерживается.');
-      const relative = path === '/' || path === '/chat' || path === '/settings' ? 'index.html' : decodeURIComponent(path).replace(/^\/+/, '');
+      const relative = ['/', '/chat', '/settings', '/history'].includes(path) ? 'index.html' : decodeURIComponent(path).replace(/^\/+/, '');
       const file = resolve(publicDir, relative);
       if (!file.startsWith(publicDir + sep)) throw new AppError(403, 'Доступ запрещён.');
       if (!mime[extname(file)]) throw new AppError(404, 'Файл не найден.');

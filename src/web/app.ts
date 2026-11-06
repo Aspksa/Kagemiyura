@@ -1,4 +1,4 @@
-import type { ChatMessage, PublicSettings } from '../shared/types.js';
+import type { ChatMessage, Conversation, ConversationSummary, PublicSettings } from '../shared/types.js';
 import { sseData } from '../shared/sse.js';
 
 function element<T extends HTMLElement>(id: string): T {
@@ -13,7 +13,8 @@ const model = element<HTMLInputElement>('model');
 const maxTokens = element<HTMLInputElement>('max-tokens');
 const send = element<HTMLButtonElement>('send');
 const stop = element<HTMLButtonElement>('stop');
-const history: ChatMessage[] = [];
+let conversation: Conversation | undefined;
+let ready = false;
 let currentSettings: PublicSettings | undefined;
 let controller: AbortController | undefined;
 let noticeTimer: ReturnType<typeof setTimeout>;
@@ -44,11 +45,11 @@ function applySettings(value: PublicSettings) {
   element('connection-status').classList.toggle('configured', value.keyConfigured && Boolean(value.model));
 }
 function navigate() {
-  const settings = location.pathname === '/settings';
-  element('chat-page').hidden = settings;
-  element('settings-page').hidden = !settings;
+  const page = location.pathname === '/settings' ? 'settings' : location.pathname === '/history' ? 'history' : 'chat';
+  for (const name of ['chat', 'settings', 'history']) element(`${name}-page`).hidden = page !== name;
+  if (page === 'history') void loadHistory();
   document.querySelectorAll<HTMLElement>('[data-nav]').forEach(node => {
-    const active = node.dataset.nav === (settings ? 'settings' : 'chat');
+    const active = node.dataset.nav === page;
     node.classList.toggle('active', active);
     if (active) node.setAttribute('aria-current', 'page'); else node.removeAttribute('aria-current');
   });
@@ -57,14 +58,128 @@ document.addEventListener('click', event => {
   if (!(event.target instanceof Element)) return;
   const link = event.target.closest<HTMLAnchorElement>('a[href]');
   if (!link || link.origin !== location.origin || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
-  if (!['/chat', '/settings'].includes(link.pathname)) return;
+  if (!['/chat', '/settings', '/history'].includes(link.pathname)) return;
   event.preventDefault();
   window.history.pushState({}, '', link.pathname);
   navigate();
 });
 window.addEventListener('popstate', navigate);
 navigate();
-void api<PublicSettings>('/api/settings').then(applySettings).catch(error => notice(errorMessage(error), true));
+void initialize();
+
+async function initialize() {
+  send.disabled = true;
+  try {
+    applySettings(await api<PublicSettings>('/api/settings'));
+    let id: string | null = null;
+    try { id = localStorage.getItem('kagemiyura-conversation'); } catch { /* disk history works without browser storage */ }
+    if (id && /^[a-f0-9-]{36}$/.test(id)) {
+      const response = await fetch(`/api/conversations/${id}`);
+      if (response.ok) showConversation(await response.json() as Conversation);
+      else if (response.status === 404) showConversation(undefined);
+      else throw new Error('Не удалось восстановить разговор. Обновите страницу.');
+    }
+    ready = true;
+  } catch (error) { notice(errorMessage(error), true); }
+  finally { send.disabled = !ready; }
+}
+
+function showConversation(value: Conversation | undefined) {
+  conversation = value;
+  try {
+    if (value) localStorage.setItem('kagemiyura-conversation', value.id);
+    else localStorage.removeItem('kagemiyura-conversation');
+  } catch { /* browser storage can be disabled */ }
+  messages.replaceChildren();
+  messages.hidden = !value?.messages.length;
+  element('welcome').hidden = Boolean(value?.messages.length);
+  element('conversation-title').textContent = value?.title ?? 'Новый разговор';
+  element('conversation-tools').hidden = !value;
+  for (const message of value?.messages ?? []) {
+    const paragraph = appendMessage(message.role, message.content || (message.status === 'pending' ? 'Ответ формируется в другой вкладке…' : 'Ответ не получен.'));
+    if (message.status !== 'complete') {
+      paragraph.classList.add('interrupted');
+      const status = document.createElement('small');
+      status.className = 'message-status';
+      status.textContent = message.status === 'pending' ? 'В процессе' : message.status === 'error' ? 'Ошибка ответа' : 'Ответ прерван';
+      paragraph.after(status);
+    }
+  }
+}
+
+async function openConversation(id: string) {
+  if (controller) throw new Error('Сначала останови текущий ответ.');
+  const value = await api<Conversation>(`/api/conversations/${id}`);
+  if (controller) return;
+  showConversation(value);
+  window.history.pushState({}, '', '/chat');
+  navigate();
+}
+
+let historyRequest = 0;
+let historyOffset = 0;
+let historyTimer: ReturnType<typeof setTimeout>;
+async function loadHistory(more = false) {
+  const request = ++historyRequest;
+  const offset = more ? historyOffset : 0;
+  const query = element<HTMLInputElement>('history-search').value.trim();
+  try {
+    const result = await api<{ conversations: ConversationSummary[]; hasMore: boolean }>(`/api/conversations?q=${encodeURIComponent(query)}&offset=${offset}`);
+    if (request !== historyRequest) return;
+    const list = element('history-list');
+    if (!more) list.replaceChildren();
+    for (const item of result.conversations) {
+      const button = document.createElement('button');
+      button.className = 'conversation-row';
+      const title = document.createElement('span');
+      title.textContent = item.title;
+      const meta = document.createElement('small');
+      meta.textContent = `${new Date(item.updatedAt).toLocaleString('ru-RU')} · Сообщений: ${item.messageCount}`;
+      button.append(title, meta);
+      button.addEventListener('click', () => { void runButton(button, () => openConversation(item.id)); });
+      list.append(button);
+    }
+    historyOffset = offset + result.conversations.length;
+    element('history-empty').hidden = list.childElementCount > 0;
+    element('history-more').hidden = !result.hasMore;
+  } catch (error) { if (request === historyRequest) notice(errorMessage(error), true); }
+}
+element('history-search').addEventListener('input', () => {
+  ++historyRequest;
+  clearTimeout(historyTimer);
+  historyTimer = setTimeout(() => { void loadHistory(); }, 250);
+});
+element('history-more').addEventListener('click', event => { void runButton(event.currentTarget as HTMLButtonElement, () => loadHistory(true)); });
+element('history-refresh').addEventListener('click', event => { void runButton(event.currentTarget as HTMLButtonElement, () => loadHistory()); });
+element('rename-chat').addEventListener('click', event => {
+  void runButton(event.currentTarget as HTMLButtonElement, async () => {
+    if (!conversation || controller) return;
+    const title = prompt('Название разговора', conversation.title);
+    if (title === null) return;
+    showConversation(await api<Conversation>(`/api/conversations/${conversation.id}`, { method: 'PATCH', body: JSON.stringify({ title }) }));
+  });
+});
+element('delete-chat').addEventListener('click', event => {
+  void runButton(event.currentTarget as HTMLButtonElement, async () => {
+    if (!conversation || controller) return;
+    if (!confirm(`Удалить разговор «${conversation.title}» с диска?`)) return;
+    await api(`/api/conversations/${conversation.id}`, { method: 'DELETE' });
+    showConversation(undefined);
+    notice('Разговор удалён.');
+  });
+});
+element('export-chat').addEventListener('click', event => {
+  void runButton(event.currentTarget as HTMLButtonElement, async () => {
+    if (!conversation) return;
+    const value = await api<Conversation>(`/api/conversations/${conversation.id}`);
+    const url = URL.createObjectURL(new Blob([JSON.stringify(value, null, 2)], { type: 'application/json' }));
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `Kagemiyura-${value.id}.json`;
+    link.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  });
+});
 
 element('settings-form').addEventListener('submit', event => {
   event.preventDefault();
@@ -130,35 +245,31 @@ input.addEventListener('keydown', event => {
 stop.addEventListener('click', () => controller?.abort());
 element('new-chat').addEventListener('click', () => {
   if (controller) { notice('Сначала останови текущий ответ.'); return; }
-  if (history.length && !confirm('Очистить текущий разговор? Переписка не сохраняется на диске.')) return;
-  history.length = 0;
-  messages.replaceChildren();
-  messages.hidden = true;
-  element('welcome').hidden = false;
+  showConversation(undefined);
+  input.value = '';
   window.history.pushState({}, '', '/chat');
   navigate();
   input.focus();
 });
 async function submit() {
   const text = input.value.trim();
-  if (!text || controller) return;
+  if (!text || controller || !ready) return;
   if (!currentSettings?.keyConfigured || !currentSettings.model) { notice('Сначала сохрани ключ и модель в настройках.', true); return; }
-  const pending: ChatMessage = { role: 'user', content: text };
-  const context = [...history, pending].slice(-23);
-  if (context.reduce((sum, message) => sum + message.content.length, 0) > 60000) { notice('Разговор стал слишком большим. Начни новый разговор.', true); return; }
-  history.push(pending);
-  appendMessage('user', text);
-  input.value = '';
-  const reply = appendMessage('assistant', 'Думаю…');
-  reply.classList.add('thinking');
   let answer = '';
   let done = false;
+  let reply: HTMLParagraphElement | undefined;
   const request = new AbortController();
   controller = request;
   send.disabled = true;
   stop.hidden = false;
   try {
-    const response = await fetch('/api/chat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ messages: context }), signal: request.signal });
+    if (!conversation) showConversation(await api<Conversation>('/api/conversations', { method: 'POST', body: '{}' }));
+    if (request.signal.aborted) return;
+    appendMessage('user', text);
+    input.value = '';
+    reply = appendMessage('assistant', 'Думаю…');
+    reply.classList.add('thinking');
+    const response = await fetch('/api/chat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ conversationId: conversation!.id, content: text }), signal: request.signal });
     if (!response.ok) {
       const data = await response.json() as { error?: string };
       throw new Error(data.error ?? 'Не удалось отправить сообщение.');
@@ -179,14 +290,19 @@ async function submit() {
     if (!answer) throw new Error('Модель вернула пустой ответ. Попробуй другую модель.');
   } catch (error) {
     const message = request.signal.aborted ? 'Ответ остановлен.' : errorMessage(error);
-    if (!answer) reply.textContent = message;
+    if (!answer && reply) reply.textContent = message;
     else notice(message, !request.signal.aborted);
-    reply.classList.remove('thinking');
-    reply.classList.add('interrupted');
+    reply?.classList.remove('thinking');
+    reply?.classList.add('interrupted');
     if (!request.signal.aborted && !answer) notice(message, true);
   } finally {
-    if (answer) history.push({ role: 'assistant', content: answer });
-    else { history.pop(); input.value = text; }
+    if (!answer) input.value = text;
+    if (conversation) {
+      try {
+        const saved = await api<Conversation>(`/api/conversations/${conversation.id}`);
+        if (!saved.messages.some(message => message.status === 'pending')) showConversation(saved);
+      } catch { notice('Не удалось перечитать историю. Обнови страницу перед следующим сообщением.', true); }
+    }
     controller = undefined;
     send.disabled = false;
     stop.hidden = true;

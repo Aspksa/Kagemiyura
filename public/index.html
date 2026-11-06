@@ -14,6 +14,7 @@
     <a class="brand" href="/chat" title="Кагэмиюра" aria-label="Кагэмиюра">К</a>
     <nav>
       <a href="/chat" data-nav="chat" title="Чат" aria-label="Чат"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11.5a8 8 0 0 1-8 8H4l1.5-4A8 8 0 1 1 20 11.5Z"/></svg></a>
+      <a href="/history" data-nav="history" title="История" aria-label="История"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v15H4zM8 2v6M16 2v6M8 12h8M8 16h5"/></svg></a>
       <button id="new-chat" title="Новый разговор" aria-label="Новый разговор"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button>
     </nav>
     <a class="settings-link" href="/settings" data-nav="settings" title="Настройки" aria-label="Настройки"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 3-1 3-3 1v4l-2 1 2 2v3l3 1 1 3h6l1-3 3-1v-3l2-2-2-1V7l-3-1-1-3Z"/><circle cx="12" cy="12" r="3"/></svg></a>
@@ -21,12 +22,18 @@
   <main>
     <header class="topbar"><span>Кагэмиюра <small>личное пространство</small></span><span id="connection-status" class="status">Подключение…</span></header>
     <section id="chat-page" class="page chat-page" aria-label="Чат">
+      <div class="conversation-bar"><span id="conversation-title">Новый разговор</span><div id="conversation-tools" hidden><button id="rename-chat" class="text-button">Название</button><button id="export-chat" class="text-button">Скачать</button><button id="delete-chat" class="text-button">Удалить</button></div></div>
       <div id="welcome" class="welcome">
         <div class="intro"><p class="eyebrow">ТВОЯ ХРАНИТЕЛЬНИЦА</p><h1>Я рядом,<br><em>хозяин.</em></h1><p class="intro-text">Начнём с мысли, идеи<br>или того, что важно сегодня.</p><a href="/settings" class="subtle-link">Настроить Cloud.ru <span aria-hidden="true">↗</span></a></div>
         <div class="portrait"><img src="/kagemiyura.png" alt="Кагэмиюра — беловолосая кицунэ в платье с золотой вышивкой" fetchpriority="high"><span class="portrait-caption">影 · KAGEMIYURA</span></div>
       </div>
       <div id="messages" class="messages" role="log" aria-label="Сообщения" aria-live="off" hidden></div>
-      <div class="composer-wrap"><form id="chat-form" class="composer"><label class="sr-only" for="prompt">Сообщение Кагэмиюре</label><textarea id="prompt" rows="2" maxlength="12000" placeholder="Расскажи, о чём думаешь…"></textarea><div class="composer-footer"><span id="model-label">Выбери модель в настройках</span><div><button type="button" id="stop" class="stop" hidden>Остановить</button><button type="submit" id="send" class="send" title="Отправить" aria-label="Отправить сообщение"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 19V5m-6 6 6-6 6 6"/></svg></button></div></div></form><p class="composer-note">Enter — отправить · Shift+Enter — новая строка. Переписка живёт в текущей вкладке.</p></div>
+      <div class="composer-wrap"><form id="chat-form" class="composer"><label class="sr-only" for="prompt">Сообщение Кагэмиюре</label><textarea id="prompt" rows="2" maxlength="12000" placeholder="Расскажи, о чём думаешь…"></textarea><div class="composer-footer"><span id="model-label">Выбери модель в настройках</span><div><button type="button" id="stop" class="stop" hidden>Остановить</button><button type="submit" id="send" class="send" title="Отправить" aria-label="Отправить сообщение"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 19V5m-6 6 6-6 6 6"/></svg></button></div></div></form><p class="composer-note">Enter — отправить · Shift+Enter — новая строка. Переписка сохраняется на твоём диске.</p></div>
+    </section>
+    <section id="history-page" class="page settings-page" aria-labelledby="history-title" hidden>
+      <div class="settings-content"><p class="eyebrow">ПАМЯТЬ РАЗГОВОРОВ</p><h1 id="history-title">История</h1><p class="muted">Разговоры остаются с тобой после закрытия вкладки. Поиск работает без Cloud.ru.</p>
+      <div class="history-search-row"><label class="sr-only" for="history-search">Найти разговор</label><input id="history-search" type="search" maxlength="200" placeholder="Название или слова из переписки"><button id="history-refresh" class="secondary">Обновить</button></div>
+      <div id="history-list" class="history-list"></div><p id="history-empty" class="muted" hidden>Разговоров не найдено.</p><button id="history-more" class="secondary" hidden>Показать ещё</button></div>
     </section>
     <section id="settings-page" class="page settings-page" aria-labelledby="settings-title" hidden>
       <div class="settings-content"><p class="eyebrow">ПОДКЛЮЧЕНИЕ</p><h1 id="settings-title">Настройки</h1><p class="muted">Cloud.ru отвечает на сообщения. Ключ хранится на твоём диске.</p>

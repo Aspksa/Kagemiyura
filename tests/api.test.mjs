@@ -111,3 +111,97 @@ test('SSE parser preserves split multibyte characters and trailing frames', asyn
   for await (const data of sseData(body)) frames.push(data);
   assert.deepEqual(frames, ['{"text":"Хозяин 🦊"}', '[DONE]']);
 });
+
+test('conversation API searches Russian text locally, renames, exports, and deletes', async t => {
+  const f = await fixture(t);
+  const created = await f.api('/api/conversations', 'POST', {});
+  assert.equal(created.status, 201);
+  const conversation = await created.json();
+  assert.deepEqual(conversation.messages, []);
+  assert.equal((await f.api(`/api/conversations/${conversation.id}`, 'PATCH', { title: 'ХРАНИТЕЛЬ 100%' })).status, 200);
+  const found = await (await f.api('/api/conversations?q=' + encodeURIComponent('хранитель 100%'))).json();
+  assert.equal(found.conversations[0].id, conversation.id);
+  assert.equal(found.hasMore, false);
+  assert.equal((await f.api('/api/conversations?offset=-1')).status, 400);
+  assert.equal((await f.api(`/api/conversations/${conversation.id}`, 'PATCH', { title: '' })).status, 400);
+  assert.equal((await f.api('/history')).status, 200);
+  assert.equal((await f.api(`/api/conversations/${conversation.id}`, 'DELETE')).status, 200);
+  assert.equal((await f.api(`/api/conversations/${conversation.id}`)).status, 404);
+  assert.equal((await f.api('/data/conversations.sqlite')).status, 404);
+  const denied = await fetch(f.base + '/api/conversations', { method: 'POST', headers: { 'Content-Type': 'application/json', Origin: 'https://unrelated.example' }, body: '{}' });
+  assert.equal(denied.status, 403);
+});
+
+test('saved chat commits before done and builds follow-up context from disk', async t => {
+  const contexts = [];
+  const f = await fixture(t, new CloudClient(async (_url, init) => {
+    contexts.push(JSON.parse(init.body).messages);
+    return new Response('data: {"choices":[{"delta":{"content":"Помню, хозяин."}}]}\n\ndata: [DONE]\n\n');
+  }));
+  await f.api('/api/settings', 'PUT', settings);
+  const conversation = await (await f.api('/api/conversations', 'POST', {})).json();
+  for (const content of ['Мой проект — Кагэмиюра', 'Что за проект?']) {
+    const response = await f.api('/api/chat', 'POST', { conversationId: conversation.id, content });
+    const frames = [];
+    for await (const frame of sseData(response.body)) frames.push(JSON.parse(frame));
+    assert.equal(frames.at(-1).done, true);
+    const saved = await (await f.api(`/api/conversations/${conversation.id}`)).json();
+    assert.equal(saved.messages.at(-1).content, 'Помню, хозяин.');
+    assert.ok(saved.messages.every(message => message.status === 'complete'));
+  }
+  assert.deepEqual(contexts[1].slice(1).map(m => m.role), ['user', 'assistant', 'user']);
+  assert.equal(contexts[1][1].content, 'Мой проект — Кагэмиюра');
+  const found = await (await f.api('/api/conversations?q=' + encodeURIComponent('ПОМНЮ'))).json();
+  assert.equal(found.conversations.length, 1);
+});
+
+test('saved chat rejects invalid input before writing and preserves partial provider failures', async t => {
+  const f = await fixture(t, new CloudClient(async () => new Response('data: {"choices":[{"delta":{"content":"Часть ответа"}}]}\n\n')));
+  const conversation = await (await f.api('/api/conversations', 'POST', {})).json();
+  assert.equal((await f.api('/api/chat', 'POST', { conversationId: conversation.id, content: 'Тест' })).status, 400);
+  await f.api('/api/settings', 'PUT', settings);
+  for (const content of ['', 'a'.repeat(12001), null]) {
+    assert.equal((await f.api('/api/chat', 'POST', { conversationId: conversation.id, content })).status, 400);
+  }
+  assert.equal((await (await f.api(`/api/conversations/${conversation.id}`)).json()).messages.length, 0);
+  const response = await f.api('/api/chat', 'POST', { conversationId: conversation.id, content: 'Тест' });
+  assert.match(await response.text(), /error/);
+  const saved = await (await f.api(`/api/conversations/${conversation.id}`)).json();
+  assert.equal(saved.messages[0].content, 'Тест');
+  assert.equal(saved.messages[1].content, 'Часть ответа');
+  assert.equal(saved.messages[1].status, 'interrupted');
+});
+
+test('stopping a saved stream cancels upstream, protects active deletion, and releases the busy lock', async t => {
+  let calls = 0;
+  let upstreamAborted = false;
+  const f = await fixture(t, new CloudClient(async (_url, init) => {
+    calls++;
+    if (calls > 1) return new Response('data: {"choices":[{"delta":{"content":"Готово"}}]}\n\ndata: [DONE]\n\n');
+    return new Response(new ReadableStream({ start(controller) {
+      controller.enqueue(new TextEncoder().encode('data: {"choices":[{"delta":{"content":"Начало"}}]}\n\n'));
+      init.signal.addEventListener('abort', () => { upstreamAborted = true; controller.error(new Error('Stopped')); }, { once: true });
+    } }));
+  }));
+  await f.api('/api/settings', 'PUT', settings);
+  const conversation = await (await f.api('/api/conversations', 'POST', {})).json();
+  const response = await f.api('/api/chat', 'POST', { conversationId: conversation.id, content: 'Начни' });
+  const reader = response.body.getReader();
+  await reader.read();
+  assert.equal((await f.api(`/api/conversations/${conversation.id}`, 'DELETE')).status, 409);
+  assert.equal((await f.api('/api/chat', 'POST', { conversationId: conversation.id, content: 'Ещё' })).status, 409);
+  await reader.cancel();
+  const deadline = Date.now() + 5000;
+  let saved;
+  do {
+    saved = await (await f.api(`/api/conversations/${conversation.id}`)).json();
+    if (saved.messages.at(-1).status !== 'pending') break;
+    await new Promise(resolve => setTimeout(resolve, 20));
+  } while (Date.now() < deadline);
+  assert.equal(upstreamAborted, true);
+  assert.equal(saved.messages.at(-1).content, 'Начало');
+  assert.equal(saved.messages.at(-1).status, 'interrupted');
+  const next = await f.api('/api/chat', 'POST', { conversationId: conversation.id, content: 'Продолжи' });
+  assert.match(await next.text(), /"done":true/);
+  assert.equal(calls, 2);
+});
