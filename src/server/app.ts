@@ -117,7 +117,7 @@ export function createApp(options: Options) {
       }
       if (path.startsWith('/api/')) throw new AppError(404, 'Метод не найден.');
       if (req.method !== 'GET' && req.method !== 'HEAD') throw new AppError(405, 'Метод не поддерживается.');
-      const relative = ['/', '/chat', '/settings', '/history'].includes(path) ? 'index.html' : decodeURIComponent(path).replace(/^\/+/, '');
+      const relative = ['/', '/chat', '/settings', '/history', '/brain'].includes(path) ? 'index.html' : decodeURIComponent(path).replace(/^\/+/, '');
       const file = resolve(publicDir, relative);
       if (!file.startsWith(publicDir + sep)) throw new AppError(403, 'Доступ запрещён.');
       if (!mime[extname(file)]) throw new AppError(404, 'Файл не найден.');

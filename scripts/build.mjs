@@ -11,6 +11,7 @@ execFileSync(process.execPath, [join(root, 'node_modules/typescript/bin/tsc'), '
 await cp(join(root, 'public'), join(root, 'dist/public'), { recursive: true });
 await mkdir(join(root, 'dist/public/assets'), { recursive: true });
 await cp(join(root, 'dist/web/app.js'), join(root, 'dist/public/assets/app.js'));
+await cp(join(root, 'dist/web/brain.js'), join(root, 'dist/public/assets/brain.js'));
 await mkdir(join(root, 'dist/public/shared'), { recursive: true });
 await cp(join(root, 'dist/shared/sse.js'), join(root, 'dist/public/shared/sse.js'));
 await cp(join(root, 'src/web/style.css'), join(root, 'dist/public/assets/style.css'));
