@@ -55,7 +55,9 @@ export function createBrain(openConversation: (id: string) => Promise<void>) {
   }
   function resize() {
     const rect = stage.getBoundingClientRect(); if (!rect.width || !rect.height) return;
-    width = rect.width; height = rect.height; const ratio = Math.min(window.devicePixelRatio || 1, 2);
+    const ratio = Math.min(window.devicePixelRatio || 1, 2);
+    if(canvas.width===Math.round(rect.width*ratio) && canvas.height===Math.round(rect.height*ratio)) return;
+    width = rect.width; height = rect.height;
     canvas.width = Math.round(width * ratio); canvas.height = Math.round(height * ratio);
     canvas.style.width = `${width}px`; canvas.style.height = `${height}px`; ctx.setTransform(ratio,0,0,ratio,0,0);
     if (visible) draw();
