@@ -46,8 +46,10 @@ function applySettings(value: PublicSettings) {
 }
 function navigate() {
   const chatOpen = location.pathname === '/chat';
-  const page = location.pathname === '/settings' ? 'settings' : 'history';
-  for (const name of ['settings', 'history']) element(`${name}-page`).hidden = page !== name;
+  const background = chatOpen ? returnPage : location.pathname;
+  const page = background === '/settings' ? 'settings' : background === '/history' ? 'history' : 'home';
+  for (const name of ['settings', 'history', 'home']) element(`${name}-page`).hidden = page !== name;
+  document.body.classList.toggle('on-home', page === 'home');
   element('chat-page').hidden = !chatOpen;
   const avatar = element<HTMLButtonElement>('avatar');
   avatar.setAttribute('aria-expanded', String(chatOpen));
@@ -59,7 +61,7 @@ function navigate() {
     if (active) node.setAttribute('aria-current', 'page'); else node.removeAttribute('aria-current');
   });
 }
-let returnPage = '/history';
+let returnPage = '/';
 function closeChat() {
   window.history.pushState({}, '', returnPage);
   navigate();
@@ -67,20 +69,20 @@ function closeChat() {
 }
 element('avatar').addEventListener('click', () => {
   if (location.pathname === '/chat') { closeChat(); return; }
-  returnPage = location.pathname === '/settings' ? '/settings' : '/history';
+  returnPage = location.pathname === '/settings' ? '/settings' : location.pathname === '/history' ? '/history' : '/';
   window.history.pushState({}, '', '/chat');
   navigate();
   input.focus();
 });
 element('close-chat').addEventListener('click', closeChat);
 document.addEventListener('keydown', event => {
-  if (event.key === 'Escape' && location.pathname === '/chat') closeChat();
+  if (event.key === 'Escape' && !element<HTMLDialogElement>('avatar-settings').open && location.pathname === '/chat') closeChat();
 });
 document.addEventListener('click', event => {
   if (!(event.target instanceof Element)) return;
   const link = event.target.closest<HTMLAnchorElement>('a[href]');
   if (!link || link.origin !== location.origin || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
-  if (!['/chat', '/settings', '/history'].includes(link.pathname)) return;
+  if (!['/', '/chat', '/settings', '/history'].includes(link.pathname)) return;
   event.preventDefault();
   window.history.pushState({}, '', link.pathname);
   navigate();
@@ -338,3 +340,120 @@ async function submit() {
 
 navigate();
 void initialize();
+
+// Настройки относятся только к оформлению в этом браузере и не меняют ответы модели.
+type AvatarValues = {
+  size: number; brightness: number; contrast: number; saturation: number; hue: number; opacity: number;
+  glow: number; color: string; circle: boolean; circleSize: number; circleSpeed: number; shadow: number;
+  particles: string; particleCount: number; fire: boolean; fireStrength: number; motion: string; motionSpeed: number;
+};
+const avatarDefaults: AvatarValues = { size: 140, brightness: 100, contrast: 100, saturation: 100, hue: 0, opacity: 100, glow: 45, color: '#e9b968', circle: false, circleSize: 105, circleSpeed: 20, shadow: 50, particles: 'none', particleCount: 8, fire: false, fireStrength: 45, motion: 'still', motionSpeed: 5 };
+type AvatarKey = keyof AvatarValues;
+type AvatarControl = { key: AvatarKey; label: string; kind: 'range' | 'color' | 'check' | 'select'; min?: number; max?: number; step?: number; unit?: string; options?: [string, string][]; hint?: string };
+const avatarGroups: { title: string; description: string; controls: AvatarControl[] }[] = [
+  { title: 'Образ', description: 'Размер и цвет изображения.', controls: [
+    {key:'size',label:'Размер',kind:'range',min:70,max:260,unit:'пкс'}, {key:'opacity',label:'Непрозрачность',kind:'range',min:20,max:100,unit:'%'},
+    {key:'brightness',label:'Яркость',kind:'range',min:40,max:160,unit:'%'}, {key:'contrast',label:'Контраст',kind:'range',min:40,max:160,unit:'%'},
+    {key:'saturation',label:'Насыщенность',kind:'range',min:0,max:200,unit:'%'}, {key:'hue',label:'Оттенок',kind:'range',min:-180,max:180,unit:'°'} ] },
+  { title: 'Магия', description: 'Сияние, круг и тень у ног.', controls: [
+    {key:'color',label:'Цвет магии',kind:'color'}, {key:'glow',label:'Сияние',kind:'range',min:0,max:100,unit:'%'},
+    {key:'circle',label:'Магический круг',kind:'check'}, {key:'circleSize',label:'Размер круга',kind:'range',min:60,max:150,unit:'%'},
+    {key:'circleSpeed',label:'Оборот круга',kind:'range',min:4,max:60,unit:'сек',hint:'Меньше секунд — быстрее вращение.'},
+    {key:'shadow',label:'Тень у ног',kind:'range',min:0,max:100,unit:'%'} ] },
+  { title: 'Частицы', description: 'Небольшие эффекты вокруг аватара.', controls: [
+    {key:'particles',label:'Вид частиц',kind:'select',options:[['none','Нет'],['sparks','Золотые искры'],['sakura','Сакура'],['fireflies','Светлячки']]},
+    {key:'particleCount',label:'Количество',kind:'range',min:2,max:20,unit:'шт.'},
+    {key:'fire',label:'Огонь у хвостов',kind:'check',hint:'Декоративное пламя за нижней частью изображения.'}, {key:'fireStrength',label:'Сила огня',kind:'range',min:0,max:100,unit:'%'} ] },
+  { title: 'Движение и характер', description: 'Настроение влияет на движение изображения, а не на характер ответов ИИ.', controls: [
+    {key:'motion',label:'Настроение движения',kind:'select',options:[['still','Без движения'],['gentle','Нежная'],['lively','Оживлённая'],['mystic','Таинственная']]},
+    {key:'motionSpeed',label:'Длительность движения',kind:'range',min:2,max:12,unit:'сек'} ] },
+  { title: 'Инструменты', description: 'Настройки хранятся только в этом браузере и не отправляются в Cloud.ru.', controls: [] },
+];
+const avatarButton = element<HTMLButtonElement>('avatar');
+const avatarDialog = element<HTMLDialogElement>('avatar-settings');
+let avatarValues: AvatarValues = {...avatarDefaults};
+try {
+  const saved = JSON.parse(localStorage.getItem('kagemiyura-avatar-v1') ?? '{}') as Record<string, unknown>;
+  for (const group of avatarGroups) for (const control of group.controls) {
+    const v = saved[control.key];
+    if (control.kind === 'range' && typeof v === 'number' && Number.isFinite(v)) (avatarValues[control.key] as number) = Math.min(control.max!, Math.max(control.min!, v));
+    else if (control.kind === 'check' && typeof v === 'boolean') (avatarValues[control.key] as boolean) = v;
+    else if (control.kind === 'color' && typeof v === 'string' && /^#[\da-f]{6}$/i.test(v)) (avatarValues[control.key] as string) = v;
+    else if (control.kind === 'select' && typeof v === 'string' && control.options?.some(option => option[0] === v)) (avatarValues[control.key] as string) = v;
+  }
+} catch { /* settings are optional when storage is unavailable */ }
+let activeAvatarTab = 0;
+function applyAvatar() {
+  const v = avatarValues;
+  const style = avatarButton.style;
+  document.documentElement.style.setProperty('--avatar-size', `${v.size}px`);
+  style.setProperty('--avatar-size', `${v.size}px`); style.setProperty('--avatar-brightness', `${v.brightness}%`);
+  style.setProperty('--avatar-contrast', `${v.contrast}%`); style.setProperty('--avatar-saturation', `${v.saturation}%`);
+  style.setProperty('--avatar-hue', `${v.hue}deg`); style.setProperty('--avatar-opacity', String(v.opacity / 100));
+  style.setProperty('--magic-color', v.color); style.setProperty('--glow', `${v.glow / 5}px`);
+  style.setProperty('--circle-size', `${v.circleSize}%`); style.setProperty('--circle-duration', `${v.circleSpeed}s`);
+  style.setProperty('--shadow-opacity', String(v.shadow / 100)); style.setProperty('--fire-opacity', String(v.fire ? v.fireStrength / 100 : 0));
+  style.setProperty('--motion-duration', `${v.motionSpeed}s`);
+  avatarButton.dataset.circle = String(v.circle); avatarButton.dataset.motion = v.motion; avatarButton.dataset.particles = v.particles;
+  const container = avatarButton.querySelector<HTMLElement>('.avatar-particles')!;
+  container.replaceChildren();
+  if (v.particles !== 'none') for (let i = 0; i < v.particleCount; i++) {
+    const spark = document.createElement('span'); spark.className = 'avatar-particle';
+    spark.textContent = v.particles === 'sakura' ? '✿' : v.particles === 'sparks' ? '✦' : '•';
+    spark.style.left = `${5 + (i * 37 % 90)}%`; spark.style.animationDelay = `${-(i * 0.61)}s`;
+    spark.style.animationDuration = `${3 + (i % 4)}s`; container.append(spark);
+  }
+  try { localStorage.setItem('kagemiyura-avatar-v1', JSON.stringify(v)); } catch { /* browser may block storage */ }
+}
+function renderAvatarSettings() {
+  const tabs = element('avatar-tabs'); const controls = element('avatar-controls'); tabs.replaceChildren(); controls.replaceChildren();
+  avatarGroups.forEach((group, index) => {
+    const tab = document.createElement('button'); tab.type = 'button'; tab.textContent = group.title;
+    tab.className = index === activeAvatarTab ? 'selected' : ''; tab.setAttribute('aria-pressed', String(index === activeAvatarTab));
+    tab.addEventListener('click', () => { activeAvatarTab = index; renderAvatarSettings(); }); tabs.append(tab);
+  });
+  const group = avatarGroups[activeAvatarTab]!;
+  const heading = document.createElement('h3'); heading.textContent = group.title;
+  const description = document.createElement('p'); description.className = 'avatar-description'; description.textContent = group.description;
+  controls.append(heading, description);
+  for (const config of group.controls) {
+    const row = document.createElement('label'); row.className = 'avatar-control';
+    const title = document.createElement('span'); title.className = 'avatar-control-title'; title.textContent = config.label;
+    const value = document.createElement('output'); const field = document.createElement(config.kind === 'select' ? 'select' : 'input');
+    field.setAttribute('aria-label', config.label);
+    if (field instanceof HTMLInputElement) {
+      field.type = config.kind === 'check' ? 'checkbox' : config.kind;
+      if (config.kind === 'range') { field.min = String(config.min); field.max = String(config.max); field.step = String(config.step ?? 1); }
+      if (config.kind === 'check') field.checked = Boolean(avatarValues[config.key]); else field.value = String(avatarValues[config.key]);
+    } else if (field instanceof HTMLSelectElement) {
+      for (const [id, label] of config.options ?? []) { const option = document.createElement('option'); option.value = id; option.textContent = label; field.append(option); }
+      field.value = String(avatarValues[config.key]);
+    }
+    function setOutput() { value.textContent = config.kind === 'range' ? `${String(avatarValues[config.key])} ${config.unit ?? ''}` : ''; }
+    setOutput();
+    field.addEventListener('input', () => {
+      const next = field instanceof HTMLInputElement && config.kind === 'check' ? field.checked : config.kind === 'range' ? Number(field.value) : field.value;
+      Object.assign(avatarValues, {[config.key]: next}); setOutput(); applyAvatar();
+    });
+    row.append(title, value, field);
+    if (config.hint) { const hint = document.createElement('small'); hint.textContent = config.hint; row.append(hint); }
+    controls.append(row);
+  }
+  if (activeAvatarTab === avatarGroups.length - 1) {
+    const reset = document.createElement('button'); reset.type = 'button'; reset.className = 'secondary avatar-reset'; reset.textContent = 'Вернуть исходный вид';
+    reset.addEventListener('click', () => { avatarValues = {...avatarDefaults}; applyAvatar(); renderAvatarSettings(); }); controls.append(reset);
+  }
+}
+function openAvatarSettings() { renderAvatarSettings(); if (!avatarDialog.open) avatarDialog.showModal(); }
+avatarButton.addEventListener('contextmenu', event => { event.preventDefault(); openAvatarSettings(); });
+element('avatar-settings-close').addEventListener('click', () => avatarDialog.close());
+avatarDialog.addEventListener('click', event => { if (event.target === avatarDialog) avatarDialog.close(); });
+let holdTimer: ReturnType<typeof setTimeout> | undefined;
+let held = false;
+avatarButton.addEventListener('pointerdown', event => {
+  if (event.pointerType !== 'touch') return;
+  held = false; holdTimer = setTimeout(() => { held = true; openAvatarSettings(); }, 550);
+});
+for (const name of ['pointerup', 'pointercancel', 'pointerleave']) avatarButton.addEventListener(name, () => { clearTimeout(holdTimer); });
+avatarButton.addEventListener('click', event => { if (held) { event.preventDefault(); event.stopImmediatePropagation(); held = false; } }, true);
+applyAvatar();
