@@ -53,6 +53,7 @@ function navigate() {
   for (const name of ['settings', 'history', 'brain', 'home']) element(`${name}-page`).hidden = page !== name;
   brain.setVisible(page === 'brain');
   document.body.classList.toggle('on-home', page === 'home');
+  document.body.classList.toggle('on-brain', page === 'brain');
   element('chat-page').hidden = !chatOpen;
   const avatar = element<HTMLButtonElement>('avatar');
   avatar.setAttribute('aria-expanded', String(chatOpen));
