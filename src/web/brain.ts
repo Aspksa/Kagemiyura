@@ -182,7 +182,7 @@ export function createBrain(openConversation: (id: string) => Promise<void>) {
           if((dot*13+i*7)%17<3)continue;
           const opacity=(dot*7+i*3)%9===0?'bb':(dot+i)%3===0?'77':'44';
           ctx.fillStyle=clusterColor+opacity;
-          const dotSize=detailLevel===2?2.5:3.4;
+          const dotSize=(detailLevel===2?2.5:3.4)/pixelScale;
           ctx.fillRect(center.x+dx-dotSize/2,center.y+dy-dotSize/2,dotSize,dotSize);
         }
         // Soft breathing light around the island's center, without obscuring pixels.
@@ -207,8 +207,10 @@ export function createBrain(openConversation: (id: string) => Promise<void>) {
         let x=0,y=0;
         if(config.layout==='hex' && view==='map'){
           const cols=Math.max(1,Math.ceil(Math.sqrt(total)));const rows=Math.ceil(total/cols);const row=Math.floor(index/cols);
-          const tile=Math.min(145,Math.max(22,base/(cols*.9+.4)))*config.size/100;const step=tile*1.65;
-          x=(index%cols-(cols-1)/2+(row%2)*.48)*step;y=(row-(rows-1)/2)*step*.86;
+          const tile=Math.min(145,Math.max(22,base/(cols*.9+.4)))*config.size/100;
+          // Hexagonal lattice with spacing that avoids cell overlap.
+          const stepX=tile*Math.sqrt(3)*1.045,stepY=tile*1.5*1.045;
+          x=(index%cols-(cols-1)/2+(row%2)*.5)*stepX;y=(row-(rows-1)/2)*stepY;
           const c=color(groupIndex);ctx.beginPath();for(let j=0;j<6;j++){const a=Math.PI/3*j-Math.PI/6,px=x+Math.cos(a)*tile,py=y+Math.sin(a)*tile;j===0?ctx.moveTo(px,py):ctx.lineTo(px,py);}ctx.closePath();ctx.fillStyle=c+'0b';ctx.fill();ctx.strokeStyle=c+'55';ctx.lineWidth=.8;ctx.stroke();
           ctx.beginPath();ctx.arc(x,y,tile*.22,0,Math.PI*2);ctx.strokeStyle=c+'66';ctx.stroke();
           ctx.beginPath();ctx.arc(x,y,tile*.34,0,Math.PI*2);ctx.strokeStyle=c+'28';ctx.stroke();
@@ -224,10 +226,10 @@ export function createBrain(openConversation: (id: string) => Promise<void>) {
             ctx.shadowColor=c;ctx.shadowBlur=7;ctx.stroke();ctx.restore();
           }
           for(let edge=0;edge<6;edge++){const a=Math.PI/3*edge-Math.PI/6;ctx.beginPath();ctx.moveTo(x+Math.cos(a)*tile*.74,y+Math.sin(a)*tile*.74);ctx.lineTo(x+Math.cos(a)*tile*.88,y+Math.sin(a)*tile*.88);ctx.strokeStyle=c+'aa';ctx.lineWidth=1.3;ctx.stroke();}
-          const dots=Math.min(item.messageCount,detailLevel===2?100:detailLevel===1?70:32);for(let k=0;k<dots;k++){const a=k*2.39996,rad=Math.sqrt((k+1)/Math.max(dots,1))*tile*.70;ctx.fillStyle=c+(k%4===0?'cc':'66');ctx.fillRect(x+Math.cos(a)*rad,y+Math.sin(a)*rad,2/pixelScale,2/pixelScale);}
+          const dots=Math.min(item.messageCount,detailLevel===2?100:detailLevel===1?70:32);for(let k=0;k<dots;k++){const a=k*2.39996,rad=Math.sqrt((k+1)/Math.max(dots,1))*tile*.70;ctx.fillStyle=c+(k%4===0?'cc':'66');const dot=2/pixelScale;ctx.fillRect(x+Math.cos(a)*rad-dot/2,y+Math.sin(a)*rad-dot/2,dot,dot);}
           ctx.beginPath();ctx.arc(x,y,3,0,Math.PI*2);ctx.fillStyle=c;ctx.shadowColor=c;ctx.shadowBlur=12;ctx.fill();ctx.shadowBlur=0;
           if(config.labels && (detailLevel>0 || total<=25)){ctx.font='bold 9px Consolas, monospace';ctx.fillStyle=c;ctx.textAlign='center';ctx.fillText(item.title.length>22?item.title.slice(0,21)+'…':item.title,x,y-tile*.45,Math.max(20,tile*1.45));}
-          points.push({item,x,y,radius:tile*.48,color:c});index++;return;
+          points.push({item,x,y,radius:tile*.90,color:c});index++;return;
         }
         if(config.layout==='rings' || view==='command') {
           const a=index/total*Math.PI*2-Math.PI/2+phase;
@@ -307,7 +309,7 @@ export function createBrain(openConversation: (id: string) => Promise<void>) {
         if(config.layout==='rings'||view==='command'){ctx.strokeStyle=c;ctx.lineWidth=.8;ctx.strokeRect(x-3,y-2.5,6,4.5);ctx.beginPath();ctx.moveTo(x-1,y+2);ctx.lineTo(x-2,y+4);ctx.stroke();}
         else {ctx.beginPath();ctx.arc(x,y,radius*.7,0,Math.PI*2);ctx.fillStyle=c;ctx.shadowColor=c;ctx.shadowBlur=8;ctx.fill();ctx.shadowBlur=0;
           ctx.beginPath();ctx.arc(x,y,radius*2.1,0,Math.PI*2);ctx.strokeStyle=c+'22';ctx.lineWidth=.7;ctx.stroke();}
-        if(config.labels && total<=70 && config.layout!=='rings' && view==='map'){ctx.font='10px Consolas, monospace';ctx.fillStyle='#c6c9c7';ctx.textAlign='center';ctx.fillText(item.title.length>24?item.title.slice(0,23)+'…':item.title,x,y+radius+15);}
+        if(config.labels && (total<=70 || detailLevel>0) && config.layout!=='rings' && view==='map'){ctx.font='10px Consolas, monospace';ctx.fillStyle='#c6c9c7';ctx.textAlign='center';ctx.fillText(item.title.length>24?item.title.slice(0,23)+'…':item.title,x,y+radius+15);}
       });
       if(config.grouping==='months' && list.length && config.layout==='rings' && grouped.length<=24) {const start=index-list.length;const a=(start+(list.length-1)/2)/total*Math.PI*2-Math.PI/2+phase;ctx.font='9px Consolas, monospace';ctx.fillStyle=color(groupIndex);ctx.textAlign='center';ctx.fillText(group.toLocaleUpperCase('ru-RU'),Math.cos(a)*base*.76,Math.sin(a)*base*.76);}
     });
