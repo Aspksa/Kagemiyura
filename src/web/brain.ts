@@ -36,6 +36,18 @@ export function createBrain(openConversation: (id: string) => Promise<void>) {
   let selected: ConversationSummary | undefined; let suppressClickUntil=0; let drag: { x:number; y:number; startX:number; startY:number; moved:boolean } | undefined;
   let view: 'command'|'map' = 'command'; let clock: ReturnType<typeof setInterval> | undefined;
   let transition: { image: HTMLCanvasElement; started: number } | undefined;
+  let cameraMotion: {fromScale:number;fromX:number;fromY:number;toScale:number;toX:number;toY:number;started:number} | undefined;
+  function moveCamera(toScale:number,toX:number,toY:number) {
+    const nextScale=Math.max(.4,Math.min(3,toScale));
+    if(reducedMotion.matches || config.speed===0 || !visible){cameraMotion=undefined;scale=nextScale;offsetX=toX;offsetY=toY;draw();return;}
+    cameraMotion={fromScale:scale,fromX:offsetX,fromY:offsetY,toScale:nextScale,toX,toY,started:performance.now()};
+  }
+  function zoomAt(factor:number,px=0,py=0) {
+    const previous=cameraMotion?.toScale??scale;
+    const fromX=cameraMotion?.toX??offsetX,fromY=cameraMotion?.toY??offsetY;
+    const next=Math.max(.4,Math.min(3,previous*factor));
+    moveCamera(next,px-(px-fromX)*next/previous,py-(py-fromY)*next/previous);
+  }
   let forceKey = ''; let forcePoints: {x:number;y:number}[] = [];
   const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
   const color = (index: number) => palettes[config.theme][index % 5]!;
@@ -394,7 +406,12 @@ export function createBrain(openConversation: (id: string) => Promise<void>) {
     config.layout=next;syncControls();draw();
   }
   function animate(time:number) { if(!visible) return; if(!last || time-last>=33){if(last && !reducedMotion.matches && config.speed>0)phase += Math.min(time-last,100)*config.speed/100*0.00008;
-    if(transition || (!reducedMotion.matches && config.speed>0))draw(); last=time;} frame=requestAnimationFrame(animate); }
+    if(cameraMotion){
+      const m=cameraMotion,t=Math.min(1,(time-m.started)/260),ease=1-Math.pow(1-t,3);
+      scale=m.fromScale+(m.toScale-m.fromScale)*ease;offsetX=m.fromX+(m.toX-m.fromX)*ease;offsetY=m.fromY+(m.toY-m.fromY)*ease;
+      if(t>=1)cameraMotion=undefined;
+    }
+    if(cameraMotion || transition || (!reducedMotion.matches && config.speed>0))draw(); last=time;} frame=requestAnimationFrame(animate); }
   function list() {
     const box=el('brain-list'); box.replaceChildren();
     for(const item of items) {const b=document.createElement('button');b.textContent=item.title;b.title=item.title;b.addEventListener('click',()=>{void showDetails(item);});box.append(b);}
@@ -429,7 +446,7 @@ export function createBrain(openConversation: (id: string) => Promise<void>) {
       if(id===detailId && dialog.open) el('brain-details-preview').textContent=c.messages.slice(0,2).map(m=>`${m.role==='user'?'Ты':'Кагэмиюра'}: ${m.content}`).join('\n\n').slice(0,600) || 'В этом разговоре пока нет сообщений.';
     } catch {if(id===detailId && dialog.open)el('brain-details-preview').textContent='Не удалось загрузить разговор.';}
   }
-  canvas.addEventListener('pointerdown',event=>{if(event.button!==0)return;drag={x:event.clientX,y:event.clientY,startX:event.clientX,startY:event.clientY,moved:false};canvas.setPointerCapture(event.pointerId);});
+  canvas.addEventListener('pointerdown',event=>{if(event.button!==0)return;cameraMotion=undefined;drag={x:event.clientX,y:event.clientY,startX:event.clientX,startY:event.clientY,moved:false};canvas.setPointerCapture(event.pointerId);});
   canvas.addEventListener('pointermove',event=>{
     const tip=el('brain-tooltip');
     if(!drag){const rect=canvas.getBoundingClientRect();const px=event.clientX-rect.left,py=event.clientY-rect.top;const x=(px-width/2-offsetX)/scale,y=(py-height/2-offsetY)/scale;const hit=[...points].reverse().find(p=>Math.hypot(p.x-x,p.y-y)<Math.max(p.radius*2,12/scale));tip.hidden=!hit;if(hit){tip.textContent=`${hit.item.title} · Сообщений: ${hit.item.messageCount}`;tip.style.left=`${Math.max(8,Math.min(width-210,px+14))}px`;tip.style.top=`${Math.max(8,Math.min(height-55,py+14))}px`;}return;}
@@ -444,20 +461,16 @@ export function createBrain(openConversation: (id: string) => Promise<void>) {
     const px=event.clientX-rect.left-width/2,py=event.clientY-rect.top-height/2;
     const worldX=(px-offsetX)/scale,worldY=(py-offsetY)/scale;
     const hit=[...points].reverse().find(p=>Math.hypot(p.x-worldX,p.y-worldY)<Math.max(p.radius*2,12/scale));
-    if(hit){scale=Math.min(3,scale*1.35);offsetX=-hit.x*scale;offsetY=-hit.y*scale;draw();}
-    else{scale=1;offsetX=0;offsetY=0;draw();}
+    if(hit){const next=Math.min(3,scale*1.35);moveCamera(next,-hit.x*next,-hit.y*next);}
+    else moveCamera(1,0,0);
   });
   canvas.addEventListener('wheel',event=>{
     event.preventDefault();
     const rect=canvas.getBoundingClientRect();
     const px=event.clientX-rect.left-width/2;
     const py=event.clientY-rect.top-height/2;
-    const previous=scale;
-    scale=Math.max(.4,Math.min(3,scale*(event.deltaY<0?1.12:.89)));
-    // Keep the world point under the cursor stationary while zooming.
-    offsetX=px-(px-offsetX)*scale/previous;
-    offsetY=py-(py-offsetY)*scale/previous;
-    draw();
+    // Preserve the world point under the pointer throughout the camera tween.
+    zoomAt(event.deltaY<0?1.12:.89,px,py);
   },{passive:false});
   canvas.addEventListener('keydown',event=>{
     const step=event.shiftKey?80:32;
@@ -475,8 +488,8 @@ export function createBrain(openConversation: (id: string) => Promise<void>) {
     draw();
   });
   el<HTMLButtonElement>('brain-panel-toggle').addEventListener('click',event=>{const button=event.currentTarget as HTMLButtonElement;const panel=document.querySelector<HTMLElement>('.brain-panel')!;panel.hidden=!panel.hidden;button.setAttribute('aria-expanded',String(!panel.hidden));button.setAttribute('aria-label',panel.hidden?'Показать настройки карты':'Скрыть настройки карты');requestAnimationFrame(resize);});
-  el('brain-plus').addEventListener('click',()=>{scale=Math.min(3,scale*1.2);draw();});el('brain-minus').addEventListener('click',()=>{scale=Math.max(.4,scale/1.2);draw();});
-  el('brain-center').addEventListener('click',()=>{scale=1;offsetX=0;offsetY=0;draw();});
+  el('brain-plus').addEventListener('click',()=>zoomAt(1.2));el('brain-minus').addEventListener('click',()=>zoomAt(1/1.2));
+  el('brain-center').addEventListener('click',()=>moveCamera(1,0,0));
   el('brain-fit').addEventListener('click',()=>{
     if(!points.length){scale=1;offsetX=0;offsetY=0;draw();return;}
     const xs=points.map(p=>p.x),ys=points.map(p=>p.y);
