@@ -94,3 +94,14 @@
 .brain-themes button[data-theme=paper] .brain-swatches i:nth-child(4){background:#c59d59}
 .brain-themes button[data-theme=paper] .brain-swatches i:nth-child(5){background:#75828b}
 @media(max-width:760px){.brain-themes{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+/* Video-reference proportions: compact technical settings rail, balanced viewport. */
+@media (min-width: 1050px){
+  .brain-panel{width:clamp(270px,22vw,320px);padding:18px 16px}
+  .brain-panel-head{margin-bottom:13px}
+  .brain-label{margin:14px 0 7px}
+  .brain-themes{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
+  .brain-themes button{min-width:0}
+  .brain-heading{top:21px;left:25px}
+  .brain-status{bottom:20px;left:25px}
+}
