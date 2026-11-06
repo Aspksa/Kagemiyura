@@ -395,7 +395,7 @@ export function createBrain(openConversation: (id: string) => Promise<void>) {
       if(progress>=1) transition=undefined;
       else{
         ctx.save();ctx.globalAlpha=(1-progress)*(1-progress);
-        ctx.drawImage(transition.image,0,0,width,height);ctx.restore();
+        ctx.drawImage(transition.image,0,0,transition.image.width,transition.image.height,0,0,width,height);ctx.restore();
       }
     }
   }
@@ -491,12 +491,12 @@ export function createBrain(openConversation: (id: string) => Promise<void>) {
   el('brain-plus').addEventListener('click',()=>zoomAt(1.2));el('brain-minus').addEventListener('click',()=>zoomAt(1/1.2));
   el('brain-center').addEventListener('click',()=>moveCamera(1,0,0));
   el('brain-fit').addEventListener('click',()=>{
-    if(!points.length){scale=1;offsetX=0;offsetY=0;draw();return;}
+    if(!points.length){moveCamera(1,0,0);return;}
     const xs=points.map(p=>p.x),ys=points.map(p=>p.y);
     const minX=Math.min(...xs),maxX=Math.max(...xs),minY=Math.min(...ys),maxY=Math.max(...ys);
     const contentWidth=Math.max(120,maxX-minX+100),contentHeight=Math.max(120,maxY-minY+100);
-    scale=Math.max(.4,Math.min(3,Math.min(width*.85/contentWidth,height*.82/contentHeight)));
-    offsetX=-(minX+maxX)/2*scale;offsetY=-(minY+maxY)/2*scale;draw();
+    const nextScale=Math.max(.4,Math.min(3,Math.min(width*.85/contentWidth,height*.82/contentHeight)));
+    moveCamera(nextScale,-(minX+maxX)/2*nextScale,-(minY+maxY)/2*nextScale);
   });
   document.querySelectorAll<HTMLButtonElement>('[data-layout]').forEach(b=>b.addEventListener('click',()=>{switchLayout(b.dataset.layout as Layout);}));
   document.querySelectorAll<HTMLButtonElement>('[data-group]').forEach(b=>b.addEventListener('click',()=>{config.grouping=b.dataset.group as Grouping;syncControls();draw();}));
