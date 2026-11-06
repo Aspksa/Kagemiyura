@@ -214,6 +214,17 @@ export function createBrain(openConversation: (id: string) => Promise<void>) {
       });
       if(config.grouping==='months' && list.length && config.layout==='rings' && grouped.length<=24) {const start=index-list.length;const a=(start+(list.length-1)/2)/total*Math.PI*2-Math.PI/2+phase;ctx.font='9px Consolas, monospace';ctx.fillStyle=color(groupIndex);ctx.textAlign='center';ctx.fillText(group.toLocaleUpperCase('ru-RU'),Math.cos(a)*base*.76,Math.sin(a)*base*.76);}
     });
+    // Draw the ring-mode endpoint markers, not only their inner anchors.
+    if(view==='map' && config.layout==='rings'){
+      ctx.save();
+      for(let i=0;i<points.length;i++){
+        const p=points[i]!,a=i/Math.max(points.length,1)*Math.PI*2-Math.PI/2+phase;
+        const r=base*(.76+(i%4)*.064),x=Math.cos(a)*r,y=Math.sin(a)*r;
+        ctx.beginPath();ctx.arc(x,y,2.3,0,Math.PI*2);ctx.fillStyle=p.color;ctx.fill();
+        ctx.beginPath();ctx.arc(x,y,5,0,Math.PI*2);ctx.strokeStyle=p.color+'55';ctx.lineWidth=.7;ctx.stroke();
+      }
+      ctx.restore();
+    }
     if(view==='map' && config.layout==='circle' && clusterCount>1){
       ctx.save();ctx.globalAlpha=.24;ctx.strokeStyle=palette[0]!;ctx.lineWidth=.65;
       for(const center of clusterCenters){ctx.beginPath();ctx.moveTo(0,0);ctx.lineTo(center.x,center.y);ctx.stroke();}
@@ -329,7 +340,14 @@ export function createBrain(openConversation: (id: string) => Promise<void>) {
   el<HTMLButtonElement>('brain-panel-toggle').addEventListener('click',event=>{const button=event.currentTarget as HTMLButtonElement;const panel=document.querySelector<HTMLElement>('.brain-panel')!;panel.hidden=!panel.hidden;button.setAttribute('aria-expanded',String(!panel.hidden));button.setAttribute('aria-label',panel.hidden?'Показать настройки карты':'Скрыть настройки карты');requestAnimationFrame(resize);});
   el('brain-plus').addEventListener('click',()=>{scale=Math.min(3,scale*1.2);draw();});el('brain-minus').addEventListener('click',()=>{scale=Math.max(.4,scale/1.2);draw();});
   el('brain-center').addEventListener('click',()=>{scale=1;offsetX=0;offsetY=0;draw();});
-  el('brain-fit').addEventListener('click',()=>{scale=.85;offsetX=0;offsetY=0;draw();});
+  el('brain-fit').addEventListener('click',()=>{
+    if(!points.length){scale=1;offsetX=0;offsetY=0;draw();return;}
+    const xs=points.map(p=>p.x),ys=points.map(p=>p.y);
+    const minX=Math.min(...xs),maxX=Math.max(...xs),minY=Math.min(...ys),maxY=Math.max(...ys);
+    const contentWidth=Math.max(120,maxX-minX+100),contentHeight=Math.max(120,maxY-minY+100);
+    scale=Math.max(.4,Math.min(3,Math.min(width*.85/contentWidth,height*.82/contentHeight)));
+    offsetX=-(minX+maxX)/2*scale;offsetY=-(minY+maxY)/2*scale;draw();
+  });
   document.querySelectorAll<HTMLButtonElement>('[data-layout]').forEach(b=>b.addEventListener('click',()=>{switchLayout(b.dataset.layout as Layout);}));
   document.querySelectorAll<HTMLButtonElement>('[data-group]').forEach(b=>b.addEventListener('click',()=>{config.grouping=b.dataset.group as Grouping;syncControls();draw();}));
   document.querySelectorAll<HTMLButtonElement>('[data-theme]').forEach(b=>b.addEventListener('click',()=>{config.theme=b.dataset.theme as Theme;syncControls();draw();}));
