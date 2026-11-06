@@ -24,7 +24,7 @@ try {
  await page.waitForFunction(()=>document.querySelector('#avatar').style.getPropertyValue('--avatar-size') !== '');
  await page.locator('#avatar').click({button:'right'});
  await page.locator('#avatar-settings').waitFor({state:'visible'});
- await page.getByLabel('Яркость',{exact:true}).fill('125');
+ await page.getByLabel('Яркость',{exact:true}).evaluate(node=>{node.value='125';node.dispatchEvent(new Event('input',{bubbles:true}));});
  assert.equal(await page.locator('#avatar').evaluate(node=>node.style.getPropertyValue('--avatar-brightness')),'125%');
  await page.getByRole('button',{name:'Магия',exact:true}).click();
  await page.getByLabel('Магический круг').check();
