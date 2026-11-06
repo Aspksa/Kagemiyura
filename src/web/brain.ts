@@ -160,6 +160,30 @@ export function createBrain(openConversation: (id: string) => Promise<void>) {
       }
       ctx.restore();
     }
+    // Video reference: two orbital rows of compact instrument tiles.
+    // These are noninteractive HUD decoration; actual conversations are drawn below.
+    if(view==='command'){
+      ctx.save();
+      const tiles:[number,number,number][]=[[.57,20,0],[.89,30,Math.PI/30]];
+      for(const [orbit,count,shift] of tiles){
+        const r=base*orbit;
+        const tileSize=Math.max(8,Math.min(19,base*.055));
+        for(let n=0;n<count;n++){
+          const a=n*Math.PI*2/count-Math.PI/2+shift;
+          const x=Math.cos(a)*r,y=Math.sin(a)*r;
+          ctx.save();ctx.translate(x,y);
+          ctx.strokeStyle=n%5===0?'rgba(68,200,197,.36)':'rgba(68,126,151,.20)';
+          ctx.fillStyle='rgba(7,25,36,.68)';ctx.lineWidth=.65;
+          ctx.beginPath();ctx.roundRect(-tileSize*.5,-tileSize*.5,tileSize,tileSize,2);
+          ctx.fill();ctx.stroke();
+          ctx.beginPath();ctx.arc(0,-tileSize*.12,tileSize*.14,0,Math.PI*2);
+          ctx.strokeStyle=n%5===0?'rgba(99,226,214,.56)':'rgba(109,162,173,.33)';ctx.stroke();
+          ctx.beginPath();ctx.moveTo(-tileSize*.17,tileSize*.20);ctx.lineTo(tileSize*.17,tileSize*.20);
+          ctx.stroke();ctx.restore();
+        }
+      }
+      ctx.restore();
+    }
     const detailLevel=scale>=1.7?2:scale>=1.1?1:0;
     // Pixel density follows zoom, independent of animation time.
     const pixelScale=Math.max(.45,Math.min(2,scale));
