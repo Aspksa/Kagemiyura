@@ -21,17 +21,21 @@
   <main>
     <header class="topbar"><span>Кагэмиюра <small>личное пространство</small></span><span id="connection-status" class="status">Подключение…</span></header>
     <section id="home-page" class="page home-page" aria-label="Главная"></section>
-    <section id="brain-page" class="page brain-page" aria-label="Мозг" hidden>
-      <header class="brain-header"><div class="brain-brand"><span class="brain-brand-mark">◉</span><div><strong>КАГЭМИЮРА <em>Второй мозг</em></strong><small>КАРТА ЛИЧНОЙ ПАМЯТИ</small></div></div><div class="brain-header-right"><span class="brain-online">● <span id="brain-count">Загрузка…</span></span><button id="brain-panel-toggle" aria-label="Скрыть настройки карты" aria-expanded="true">☰</button></div></header>
+    <section id="brain-page" class="page brain-page" aria-label="Мозг" data-view="command" hidden>
+      <header class="brain-header"><div class="brain-brand"><span class="brain-brand-mark">◉</span><div><strong>КАГЭМИЮРА <em id="brain-view-title">Команда</em></strong><small>КАРТА ЛИЧНОЙ ПАМЯТИ</small></div></div><div class="brain-header-right"><span class="brain-online">● <span id="brain-count">Загрузка…</span></span><button id="brain-command-view" class="brain-view-button" aria-pressed="true">КОМАНДА</button><button id="brain-map-view" class="brain-view-button" aria-pressed="false">КАРТА ПАМЯТИ</button><button id="brain-panel-toggle" aria-label="Скрыть настройки карты" aria-expanded="true">☰</button></div></header>
+      <aside class="brain-command-left"><div class="brain-command-card"><div class="brain-card-title">● <span>РАЗГОВОРЫ</span><small id="command-count">0</small></div><div id="command-list" class="command-list"></div><p id="command-empty" class="command-empty">Сохранённых разговоров пока нет</p><button id="command-load-more" class="command-link" hidden>Загрузить ещё</button></div><div class="brain-command-card command-clock"><div class="brain-card-title">● <span>СЕЙЧАС</span></div><strong id="command-time">--:--:--</strong><span id="command-date"></span></div></aside>
       <div class="brain-stage">
+        <div class="command-stage-title">КАГЭМИЮРА <span>Команда</span><small>ЛИЧНОЕ ПРОСТРАНСТВО · ЛОКАЛЬНО</small></div>
         <canvas id="brain-canvas" tabindex="0" aria-label="Карта сохранённых разговоров. Для выбора разговора используйте список в настройках карты."></canvas>
+        <div id="brain-tooltip" class="brain-tooltip" hidden></div>
         <div id="brain-status" class="brain-status" role="status"></div>
         <div class="brain-zoom"><button id="brain-minus" aria-label="Уменьшить">−</button><button id="brain-plus" aria-label="Увеличить">+</button><button id="brain-center" aria-label="Вернуть в центр">⌾</button></div>
       </div>
+      <aside class="brain-command-right"><div class="brain-command-card command-summary"><div class="brain-card-title">● <span>ПАМЯТЬ</span><small>ЛОКАЛЬНО</small></div><strong id="command-total">0</strong><p>загруженных разговоров</p><div class="command-separator"></div><div class="brain-card-title">● <span>НЕДАВНИЕ</span></div><div id="command-recent" class="command-recent"></div></div><div class="brain-command-card"><div class="brain-card-title">● <span>КАРТА ПАМЯТИ</span></div><p class="command-description">Исследуй разговоры по датам и открывай их на карте.</p><button id="command-open-map" class="command-map-button">ОТКРЫТЬ КАРТУ ↗</button></div></aside>
       <aside class="brain-panel" aria-label="Настройки карты">
         <div class="brain-panel-head"><span>НАСТРОЙКИ КАРТЫ</span><button id="brain-refresh" aria-label="Обновить карту">↻</button></div>
         <label class="sr-only" for="brain-search">Поиск разговоров</label><input id="brain-search" type="search" maxlength="200" placeholder="Поиск разговоров /">
-        <p class="brain-label">РАСПОЛОЖЕНИЕ</p><div class="brain-options" id="brain-layout"><button data-layout="rings">Кольца</button><button data-layout="circle">Круг</button><button data-layout="hex">Соты</button><button data-layout="grid">Сетка</button></div>
+        <p class="brain-label">РАСПОЛОЖЕНИЕ</p><div class="brain-options" id="brain-layout"><button data-layout="rings">Кольца</button><button data-layout="circle">Круг</button><button data-layout="hex">Соты</button><button data-layout="force">Сила</button><button data-layout="grid">Плита</button><button data-layout="hud">HUD</button></div>
         <p class="brain-label">ВИД КАРТЫ</p><div class="brain-options" id="brain-grouping"><button data-group="months">По месяцам</button><button data-group="all">Все разговоры</button></div>
         <label class="brain-slider">Скорость вращения <output id="brain-speed-value"></output><input id="brain-speed" type="range" min="0" max="100" value="20"></label>
         <label class="brain-slider">Размер узлов <output id="brain-size-value"></output><input id="brain-size" type="range" min="70" max="150" value="100"></label>
