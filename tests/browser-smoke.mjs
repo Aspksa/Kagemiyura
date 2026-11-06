@@ -108,6 +108,19 @@ try {
    await page.locator(`[data-theme="${theme}"]`).click();
    assert.equal(await page.locator(`[data-theme="${theme}"]`).getAttribute('aria-pressed'),'true');
  }
+ // Save visual evidence for each graph mode when requested by CI.
+ if(process.env.KAGEMIYURA_VISUAL_DIR){
+   const dir=process.env.KAGEMIYURA_VISUAL_DIR;
+   await mkdir(dir,{recursive:true});
+   for(const layout of ['rings','circle','hex','force','grid','hud']){
+     await page.locator(`[data-layout="${layout}"]`).click();
+     await page.waitForTimeout(450);
+     await page.locator('.brain-stage').screenshot({path:join(dir,`brain-${layout}.png`)});
+   }
+   await page.locator('#brain-command-view').click();
+   await page.locator('#brain-page').screenshot({path:join(dir,'brain-command.png')});
+   await page.locator('#brain-map-view').click();
+ }
  await page.locator('[data-layout=hex]').click();
  await page.locator('#brain-size').evaluate(node=>{node.value='70';node.dispatchEvent(new Event('input',{bubbles:true}));});
  const smallHex=await page.locator('#brain-canvas').evaluate(node=>node.toDataURL());
