@@ -1,0 +1,18 @@
+{
+  "name": "kagemiyura",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Переносная личная ИИ-помощница Кагэмиюра",
+  "engines": { "node": ">=24" },
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "check": "tsc --noEmit",
+    "test": "npm run build && node --test tests/*.test.mjs",
+    "start": "node scripts/launch.mjs"
+  },
+  "devDependencies": {
+    "@types/node": "24.19.2",
+    "typescript": "5.9.3"
+  }
+}
