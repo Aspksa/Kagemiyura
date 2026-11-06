@@ -74,6 +74,7 @@ try {
  await page.locator('#brain-page').waitFor({state:'visible'});
  await page.locator('#brain-list button').first().waitFor();
  assert.equal(await page.locator('#brain-list button').count(),1);
+ console.log('BRAIN_SNAPSHOT:'+(await page.screenshot({type:'jpeg',quality:40})).toString('base64'));
  await page.locator('#brain-panel-toggle').click();
  assert.equal(await page.locator('#brain-panel-toggle').getAttribute('aria-expanded'),'false');
  await page.locator('#brain-panel-toggle').click();
