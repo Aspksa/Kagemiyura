@@ -48,6 +48,18 @@ export function createBrain(openConversation: (id: string) => Promise<void>) {
     const next=Math.max(.4,Math.min(3,previous*factor));
     moveCamera(next,px-(px-fromX)*next/previous,py-(py-fromY)*next/previous);
   }
+  let cameraMotion: {fromScale:number;fromX:number;fromY:number;toScale:number;toX:number;toY:number;started:number} | undefined;
+  function moveCamera(toScale:number,toX:number,toY:number) {
+    const nextScale=Math.max(.4,Math.min(3,toScale));
+    if(reducedMotion.matches || config.speed===0 || !visible){cameraMotion=undefined;scale=nextScale;offsetX=toX;offsetY=toY;draw();return;}
+    cameraMotion={fromScale:scale,fromX:offsetX,fromY:offsetY,toScale:nextScale,toX,toY,started:performance.now()};
+  }
+  function zoomAt(factor:number,px=0,py=0) {
+    const previous=cameraMotion?.toScale??scale;
+    const fromX=cameraMotion?.toX??offsetX,fromY=cameraMotion?.toY??offsetY;
+    const next=Math.max(.4,Math.min(3,previous*factor));
+    moveCamera(next,px-(px-fromX)*next/previous,py-(py-fromY)*next/previous);
+  }
   let forceKey = ''; let forcePoints: {x:number;y:number}[] = [];
   const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
   const color = (index: number) => palettes[config.theme][index % 5]!;
@@ -495,8 +507,8 @@ export function createBrain(openConversation: (id: string) => Promise<void>) {
     const xs=points.map(p=>p.x),ys=points.map(p=>p.y);
     const minX=Math.min(...xs),maxX=Math.max(...xs),minY=Math.min(...ys),maxY=Math.max(...ys);
     const contentWidth=Math.max(120,maxX-minX+100),contentHeight=Math.max(120,maxY-minY+100);
-    scale=Math.max(.4,Math.min(3,Math.min(width*.85/contentWidth,height*.82/contentHeight)));
-    offsetX=-(minX+maxX)/2*scale;offsetY=-(minY+maxY)/2*scale;draw();
+    const nextScale=Math.max(.4,Math.min(3,Math.min(width*.85/contentWidth,height*.82/contentHeight)));
+    moveCamera(nextScale,-(minX+maxX)/2*nextScale,-(minY+maxY)/2*nextScale);
   });
   document.querySelectorAll<HTMLButtonElement>('[data-layout]').forEach(b=>b.addEventListener('click',()=>{switchLayout(b.dataset.layout as Layout);}));
   document.querySelectorAll<HTMLButtonElement>('[data-group]').forEach(b=>b.addEventListener('click',()=>{config.grouping=b.dataset.group as Grouping;syncControls();draw();}));
