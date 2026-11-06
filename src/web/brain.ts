@@ -173,6 +173,17 @@ export function createBrain(openConversation: (id: string) => Promise<void>) {
           ctx.fillStyle=clusterColor+opacity;
           ctx.fillRect(center.x+dx-1.7,center.y+dy-1.7,3.4,3.4);
         }
+        // Soft breathing light around the island's center, without obscuring pixels.
+        if(!reducedMotion.matches && config.speed>0){
+          const glow=.12+.1*(1+Math.sin(phase*55+i*1.7))/2;
+          const halo=ctx.createRadialGradient(center.x,center.y,0,center.x,center.y,Math.max(28,columns*gap*.65));
+          halo.addColorStop(0,clusterColor+'33');
+          halo.addColorStop(1,clusterColor+'00');
+          ctx.globalAlpha=glow;
+          ctx.fillStyle=halo;
+          ctx.beginPath();ctx.arc(center.x,center.y,Math.max(28,columns*gap*.65),0,Math.PI*2);ctx.fill();
+          ctx.globalAlpha=1;
+        }
         ctx.font='bold 11px Consolas, monospace';ctx.fillStyle=clusterColor;
         ctx.textAlign='center';
         ctx.fillText(name.toLocaleUpperCase('ru-RU').slice(0,24),center.x,center.y-(rows*gap)/2-15);
