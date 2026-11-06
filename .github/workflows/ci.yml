@@ -32,7 +32,14 @@ jobs:
         run: |
           npm install --no-save --package-lock=false --ignore-scripts --no-audit --no-fund playwright@1.62.1
           npx --no-install playwright install --with-deps chromium
-          node tests/browser-smoke.mjs
+          KAGEMIYURA_VISUAL_DIR=.runtime/video-screenshots node tests/browser-smoke.mjs
+      - name: Скриншоты шести режимов мозга
+        if: runner.os == 'Linux' && always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: brain-video-screenshots
+          path: .runtime/video-screenshots/
+          if-no-files-found: ignore
       - name: BAT, переносной Node.js и сложный путь Windows
         if: runner.os == 'Windows'
         shell: powershell
