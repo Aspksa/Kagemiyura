@@ -138,6 +138,7 @@ export function createBrain(openConversation: (id: string) => Promise<void>) {
       }
       ctx.restore();
     }
+    const detailLevel=scale>=1.7?2:scale>=1.1?1:0;
     const total=Math.max(items.length,1); let index=0;
     const clusterCount=Math.max(grouped.length,1);
     const clusterCenters=grouped.map((_,i)=>{
@@ -157,7 +158,7 @@ export function createBrain(openConversation: (id: string) => Promise<void>) {
       grouped.forEach(([name,list],i)=>{
         const center=clusterCenters[i]!;
         // The reference uses square-pixel constellations, not large circular bubbles.
-        const count=Math.min(110,Math.max(24,list.reduce((sum,item)=>sum+Math.min(item.messageCount,15),0)));
+        const count=Math.min(detailLevel===2?220:detailLevel===1?150:90,Math.max(24,list.reduce((sum,item)=>sum+Math.min(item.messageCount,detailLevel===2?30:15),0)));
         const columns=Math.ceil(Math.sqrt(count*1.25));
         const rows=Math.ceil(count/columns);
         const gap=Math.max(5,Math.min(9,config.size/17));
@@ -212,7 +213,7 @@ export function createBrain(openConversation: (id: string) => Promise<void>) {
             ctx.shadowColor=c;ctx.shadowBlur=7;ctx.stroke();ctx.restore();
           }
           for(let edge=0;edge<6;edge++){const a=Math.PI/3*edge-Math.PI/6;ctx.beginPath();ctx.moveTo(x+Math.cos(a)*tile*.74,y+Math.sin(a)*tile*.74);ctx.lineTo(x+Math.cos(a)*tile*.88,y+Math.sin(a)*tile*.88);ctx.strokeStyle=c+'aa';ctx.lineWidth=1.3;ctx.stroke();}
-          const dots=Math.min(item.messageCount,48);for(let k=0;k<dots;k++){const a=k*2.39996,rad=Math.sqrt((k+1)/49)*tile*.72;ctx.fillStyle=c+(k%4===0?'cc':'66');ctx.fillRect(x+Math.cos(a)*rad,y+Math.sin(a)*rad,2,2);}
+          const dots=Math.min(item.messageCount,detailLevel===2?100:detailLevel===1?70:32);for(let k=0;k<dots;k++){const a=k*2.39996,rad=Math.sqrt((k+1)/49)*tile*.72;ctx.fillStyle=c+(k%4===0?'cc':'66');ctx.fillRect(x+Math.cos(a)*rad,y+Math.sin(a)*rad,2,2);}
           ctx.beginPath();ctx.arc(x,y,3,0,Math.PI*2);ctx.fillStyle=c;ctx.shadowColor=c;ctx.shadowBlur=12;ctx.fill();ctx.shadowBlur=0;
           if(config.labels){ctx.font='bold 9px Consolas, monospace';ctx.fillStyle=c;ctx.textAlign='center';ctx.fillText(item.title.length>22?item.title.slice(0,21)+'…':item.title,x,y-tile*.45,Math.max(20,tile*1.45));}
           points.push({item,x,y,radius:tile*.48,color:c});index++;return;
@@ -249,7 +250,7 @@ export function createBrain(openConversation: (id: string) => Promise<void>) {
         if(config.layout==='circle' && view==='map'){
           // Video-style micro-square constellations around each conversation anchor.
           // Dot count is bounded so long conversations do not overload Canvas.
-          const density=Math.min(42,Math.max(8,item.messageCount));
+          const density=Math.min(detailLevel===2?96:detailLevel===1?64:28,Math.max(8,item.messageCount));
           const spacing=Math.max(3.2,Math.min(6,config.size/24));
           const columns=Math.max(4,Math.ceil(Math.sqrt(density)));
           const rows=Math.ceil(density/columns);
@@ -281,6 +282,7 @@ export function createBrain(openConversation: (id: string) => Promise<void>) {
             ctx.globalAlpha=.3+.7*Math.sin(t*Math.PI);
             ctx.fillStyle=c;ctx.shadowColor=c;ctx.shadowBlur=10;
             ctx.beginPath();ctx.arc(px,py,1.8,0,Math.PI*2);ctx.fill();
+            if(detailLevel>0){ctx.beginPath();ctx.moveTo(px-dx/distance*9,py-dy/distance*9);ctx.lineTo(px,py);ctx.strokeStyle=c+'77';ctx.lineWidth=1.2;ctx.stroke();}
             ctx.restore();
           }
         }
