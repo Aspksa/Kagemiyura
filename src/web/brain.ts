@@ -100,6 +100,24 @@ export function createBrain(openConversation: (id: string) => Promise<void>) {
     for (const item of items) { const key=config.grouping==='all'?'Разговоры':monthKey(item); const list=result.get(key) ?? []; list.push(item); result.set(key,list); }
     return [...result.entries()];
   }
+  let topicCache: {source:ConversationSummary[];links:{from:string;to:string;shared:string[]}[]} | undefined;
+  // Local, explainable topic hints. Never label lexical overlap as a verified fact.
+  function titleLinks(source: ConversationSummary[]) {
+    if(topicCache?.source===source)return topicCache.links;
+    const stop=new Set(['этот','этого','этой','только','чтобы','после','перед','когда','сделай','делай','проект','проекта','работа','работы','помощью','будет','теперь','снова','дальше','через','нужно','можно','about','with','from','this','that','your','project']);
+    const tokens=source.map(item=>new Set((item.title.toLocaleLowerCase('ru-RU').match(/[\p{L}\p{N}]{4,}/gu)??[]).filter(word=>!stop.has(word))));
+    const frequencies=new Map<string,number>();
+    for(const set of tokens)for(const word of set)frequencies.set(word,(frequencies.get(word)??0)+1);
+    const result:{from:string;to:string;shared:string[]}[]=[];
+    // Cap comparisons so large archives do not freeze the canvas.
+    const limit=Math.min(source.length,220);
+    for(let i=0;i<limit;i++)for(let j=i+1;j<limit;j++){
+      const shared=[...tokens[i]!].filter(word=>tokens[j]!.has(word) && (frequencies.get(word)??0)<=Math.max(3,source.length*.3));
+      if(shared.length>=2)result.push({from:source[i]!.id,to:source[j]!.id,shared:shared.slice(0,4)});
+      if(result.length>=240){topicCache={source,links:result};return result;}
+    }
+    topicCache={source,links:result};return result;
+  }
   function forceLayout(total:number, base:number) {
     const key=`${items.map(item=>item.id).join(',')}:${Math.round(base)}`;if(key===forceKey)return forcePoints;
     forceKey=key;forcePoints=Array.from({length:total},(_,i)=>{const a=i*2.39996,r=Math.sqrt((i+1)/total)*base*.72;return {x:Math.cos(a)*r,y:Math.sin(a)*r};});
@@ -435,6 +453,19 @@ export function createBrain(openConversation: (id: string) => Promise<void>) {
     } else if(config.layout==='rings'||config.layout==='circle'||items.length===0){ctx.beginPath();ctx.arc(0,0,29,0,Math.PI*2);ctx.fillStyle='#020a11';ctx.fill();ctx.strokeStyle=palette[0]!;ctx.lineWidth=1.3;ctx.stroke();
     ctx.beginPath();ctx.arc(0,0,34,0,Math.PI*2);ctx.strokeStyle=palette[0]+'44';ctx.lineWidth=1;ctx.stroke();
     ctx.font='italic 23px Georgia, serif';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillStyle=palette[0]!;ctx.fillText('К',0,1);ctx.textBaseline='alphabetic';ctx.font='9px Consolas, monospace';ctx.fillStyle='#91a7a8';ctx.fillText('КАГЭМИЮРА',0,51);}
+    if(view==='map' && points.length>1){
+      // Solid content-derived hints are distinct from decorative dashed connections.
+      const byId=new Map(points.map(p=>[p.item.id,p]));
+      const links=titleLinks(items);
+      ctx.save();ctx.lineWidth=Math.max(.45,config.lineWidth/100*.65);
+      for(const link of links){
+        const a=byId.get(link.from),b=byId.get(link.to);
+        if(!a||!b)continue;
+        ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);
+        ctx.strokeStyle='rgba(130,216,203,.20)';ctx.stroke();
+      }
+      ctx.restore();
+    }
     ctx.restore();
     if(transition){
       const progress=Math.min(1,(performance.now()-transition.started)/380);
