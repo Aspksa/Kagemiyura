@@ -185,7 +185,18 @@ export function createBrain(openConversation: (id: string) => Promise<void>) {
   canvas.addEventListener('pointerleave',()=>{el('brain-tooltip').hidden=true;});
   canvas.addEventListener('pointerup',event=>{if(!drag)return;if(!drag.moved){const rect=canvas.getBoundingClientRect();const x=(event.clientX-rect.left-width/2-offsetX)/scale,y=(event.clientY-rect.top-height/2-offsetY)/scale;const hit=[...points].reverse().find(p=>Math.hypot(p.x-x,p.y-y)<Math.max(p.radius*2,12/scale));if(hit)void showDetails(hit.item);}drag=undefined;});
   canvas.addEventListener('pointercancel',()=>{drag=undefined;});
-  canvas.addEventListener('wheel',event=>{event.preventDefault();scale=Math.max(.4,Math.min(3,scale*(event.deltaY<0?1.12:.89)));draw();},{passive:false});
+  canvas.addEventListener('wheel',event=>{
+    event.preventDefault();
+    const rect=canvas.getBoundingClientRect();
+    const px=event.clientX-rect.left-width/2;
+    const py=event.clientY-rect.top-height/2;
+    const previous=scale;
+    scale=Math.max(.4,Math.min(3,scale*(event.deltaY<0?1.12:.89)));
+    // Keep the world point under the cursor stationary while zooming.
+    offsetX=px-(px-offsetX)*scale/previous;
+    offsetY=py-(py-offsetY)*scale/previous;
+    draw();
+  },{passive:false});
   el<HTMLButtonElement>('brain-panel-toggle').addEventListener('click',event=>{const button=event.currentTarget as HTMLButtonElement;const panel=document.querySelector<HTMLElement>('.brain-panel')!;panel.hidden=!panel.hidden;button.setAttribute('aria-expanded',String(!panel.hidden));button.setAttribute('aria-label',panel.hidden?'Показать настройки карты':'Скрыть настройки карты');requestAnimationFrame(resize);});
   el('brain-plus').addEventListener('click',()=>{scale=Math.min(3,scale*1.2);draw();});el('brain-minus').addEventListener('click',()=>{scale=Math.max(.4,scale/1.2);draw();});
   el('brain-center').addEventListener('click',()=>{scale=1;offsetX=0;offsetY=0;draw();});
