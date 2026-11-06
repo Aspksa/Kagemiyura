@@ -72,6 +72,9 @@ try {
  await page.getByText('Хозяин, переписка сохранена.',{exact:true}).waitFor();
  await page.locator('[data-nav=brain]').click();
  await page.locator('#brain-page').waitFor({state:'visible'});
+ await page.locator('#command-list button').first().waitFor();
+ assert.equal(await page.locator('#brain-command-view').getAttribute('aria-pressed'),'true');
+ await page.locator('#command-open-map').click();
  await page.locator('#brain-list button').first().waitFor();
  assert.equal(await page.locator('#brain-canvas').evaluate(node=>Math.round(node.getBoundingClientRect().height)),await page.locator('.brain-stage').evaluate(node=>Math.round(node.getBoundingClientRect().height)));
  assert.equal(await page.locator('#brain-list button').count(),1);
@@ -83,9 +86,15 @@ try {
  await page.locator('[data-theme=ocean]').click();
  await page.locator('#brain-save').click();
  await page.reload();
+ await page.locator('#brain-map-view').click();
  await page.locator('#brain-list button').first().waitFor();
  assert.equal(await page.locator('[data-layout=hex]').getAttribute('aria-pressed'),'true');
  assert.equal(await page.locator('[data-theme=ocean]').getAttribute('aria-pressed'),'true');
+ await page.waitForFunction(()=>Math.round(document.querySelector('#brain-canvas').getBoundingClientRect().width)===Math.round(document.querySelector('.brain-stage').getBoundingClientRect().width));
+ const box=await page.locator('#brain-canvas').boundingBox();
+ await page.mouse.click(box.x+box.width/2,box.y+box.height/2);
+ await page.locator('#brain-details').waitFor({state:'visible'});
+ await page.locator('#brain-details-close').click();
  await page.locator('#brain-search').fill('ПОМНИ');
  await page.locator('#brain-list button').first().waitFor();
  await page.locator('#brain-list button').first().click();
