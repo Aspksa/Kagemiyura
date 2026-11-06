@@ -139,6 +139,8 @@ export function createBrain(openConversation: (id: string) => Promise<void>) {
       ctx.restore();
     }
     const detailLevel=scale>=1.7?2:scale>=1.1?1:0;
+    // Pixel density follows zoom, independent of animation time.
+    const pixelScale=Math.max(.45,Math.min(2,scale));
     const total=Math.max(items.length,1); let index=0;
     const clusterCount=Math.max(grouped.length,1);
     const clusterCenters=grouped.map((_,i)=>{
@@ -180,7 +182,8 @@ export function createBrain(openConversation: (id: string) => Promise<void>) {
           if((dot*13+i*7)%17<3)continue;
           const opacity=(dot*7+i*3)%9===0?'bb':(dot+i)%3===0?'77':'44';
           ctx.fillStyle=clusterColor+opacity;
-          ctx.fillRect(center.x+dx-1.7,center.y+dy-1.7,3.4,3.4);
+          const dotSize=detailLevel===2?2.5:3.4;
+          ctx.fillRect(center.x+dx-dotSize/2,center.y+dy-dotSize/2,dotSize,dotSize);
         }
         // Soft breathing light around the island's center, without obscuring pixels.
         if(!reducedMotion.matches && config.speed>0){
@@ -221,9 +224,9 @@ export function createBrain(openConversation: (id: string) => Promise<void>) {
             ctx.shadowColor=c;ctx.shadowBlur=7;ctx.stroke();ctx.restore();
           }
           for(let edge=0;edge<6;edge++){const a=Math.PI/3*edge-Math.PI/6;ctx.beginPath();ctx.moveTo(x+Math.cos(a)*tile*.74,y+Math.sin(a)*tile*.74);ctx.lineTo(x+Math.cos(a)*tile*.88,y+Math.sin(a)*tile*.88);ctx.strokeStyle=c+'aa';ctx.lineWidth=1.3;ctx.stroke();}
-          const dots=Math.min(item.messageCount,detailLevel===2?100:detailLevel===1?70:32);for(let k=0;k<dots;k++){const a=k*2.39996,rad=Math.sqrt((k+1)/49)*tile*.72;ctx.fillStyle=c+(k%4===0?'cc':'66');ctx.fillRect(x+Math.cos(a)*rad,y+Math.sin(a)*rad,2,2);}
+          const dots=Math.min(item.messageCount,detailLevel===2?100:detailLevel===1?70:32);for(let k=0;k<dots;k++){const a=k*2.39996,rad=Math.sqrt((k+1)/Math.max(dots,1))*tile*.70;ctx.fillStyle=c+(k%4===0?'cc':'66');ctx.fillRect(x+Math.cos(a)*rad,y+Math.sin(a)*rad,2/pixelScale,2/pixelScale);}
           ctx.beginPath();ctx.arc(x,y,3,0,Math.PI*2);ctx.fillStyle=c;ctx.shadowColor=c;ctx.shadowBlur=12;ctx.fill();ctx.shadowBlur=0;
-          if(config.labels){ctx.font='bold 9px Consolas, monospace';ctx.fillStyle=c;ctx.textAlign='center';ctx.fillText(item.title.length>22?item.title.slice(0,21)+'…':item.title,x,y-tile*.45,Math.max(20,tile*1.45));}
+          if(config.labels && (detailLevel>0 || total<=25)){ctx.font='bold 9px Consolas, monospace';ctx.fillStyle=c;ctx.textAlign='center';ctx.fillText(item.title.length>22?item.title.slice(0,21)+'…':item.title,x,y-tile*.45,Math.max(20,tile*1.45));}
           points.push({item,x,y,radius:tile*.48,color:c});index++;return;
         }
         if(config.layout==='rings' || view==='command') {
@@ -295,7 +298,11 @@ export function createBrain(openConversation: (id: string) => Promise<void>) {
           }
         }
 
-        if(config.layout==='hex' && view==='map'){ctx.beginPath();for(let j=0;j<6;j++){const a=Math.PI/3*j;const px=x+Math.cos(a)*radius*2.1,py=y+Math.sin(a)*radius*2.1;j===0?ctx.moveTo(px,py):ctx.lineTo(px,py);}ctx.closePath();ctx.strokeStyle=c+'55';ctx.stroke();}
+        if(config.layout==='hex' && view==='map'){
+          // Hex cells are interactive targets, without circular badges over the constellation.
+          points[points.length-1]!.radius=Math.max(radius,Math.min(145,Math.max(22,base/(Math.ceil(Math.sqrt(total))*.9+.4)))*config.size/100*.65);
+          return;
+        }
         ctx.beginPath();ctx.arc(x,y,radius*1.45,0,Math.PI*2);ctx.strokeStyle=c+'aa';ctx.lineWidth=.8;ctx.fillStyle='#04111b';ctx.fill();ctx.stroke();
         if(config.layout==='rings'||view==='command'){ctx.strokeStyle=c;ctx.lineWidth=.8;ctx.strokeRect(x-3,y-2.5,6,4.5);ctx.beginPath();ctx.moveTo(x-1,y+2);ctx.lineTo(x-2,y+4);ctx.stroke();}
         else {ctx.beginPath();ctx.arc(x,y,radius*.7,0,Math.PI*2);ctx.fillStyle=c;ctx.shadowColor=c;ctx.shadowBlur=8;ctx.fill();ctx.shadowBlur=0;
