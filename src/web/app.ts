@@ -45,8 +45,13 @@ function applySettings(value: PublicSettings) {
   element('connection-status').classList.toggle('configured', value.keyConfigured && Boolean(value.model));
 }
 function navigate() {
-  const page = location.pathname === '/settings' ? 'settings' : location.pathname === '/history' ? 'history' : 'chat';
-  for (const name of ['chat', 'settings', 'history']) element(`${name}-page`).hidden = page !== name;
+  const chatOpen = location.pathname === '/chat';
+  const page = location.pathname === '/settings' ? 'settings' : 'history';
+  for (const name of ['settings', 'history']) element(`${name}-page`).hidden = page !== name;
+  element('chat-page').hidden = !chatOpen;
+  const avatar = element<HTMLButtonElement>('avatar');
+  avatar.setAttribute('aria-expanded', String(chatOpen));
+  avatar.setAttribute('aria-label', chatOpen ? 'Закрыть чат с Кагэмиюрой' : 'Открыть чат с Кагэмиюрой');
   if (page === 'history') void loadHistory();
   document.querySelectorAll<HTMLElement>('[data-nav]').forEach(node => {
     const active = node.dataset.nav === page;
@@ -54,6 +59,23 @@ function navigate() {
     if (active) node.setAttribute('aria-current', 'page'); else node.removeAttribute('aria-current');
   });
 }
+let returnPage = '/history';
+function closeChat() {
+  window.history.pushState({}, '', returnPage);
+  navigate();
+  element<HTMLButtonElement>('avatar').focus();
+}
+element('avatar').addEventListener('click', () => {
+  if (location.pathname === '/chat') { closeChat(); return; }
+  returnPage = location.pathname === '/settings' ? '/settings' : '/history';
+  window.history.pushState({}, '', '/chat');
+  navigate();
+  input.focus();
+});
+element('close-chat').addEventListener('click', closeChat);
+document.addEventListener('keydown', event => {
+  if (event.key === 'Escape' && location.pathname === '/chat') closeChat();
+});
 document.addEventListener('click', event => {
   if (!(event.target instanceof Element)) return;
   const link = event.target.closest<HTMLAnchorElement>('a[href]');
