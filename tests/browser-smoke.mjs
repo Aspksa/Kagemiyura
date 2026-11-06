@@ -73,7 +73,12 @@ try {
  await page.locator('[data-nav=brain]').click();
  await page.locator('#brain-page').waitFor({state:'visible'});
  await page.locator('#brain-list button').first().waitFor();
+ assert.equal(await page.locator('#brain-canvas').evaluate(node=>Math.round(node.getBoundingClientRect().height)),await page.locator('.brain-stage').evaluate(node=>Math.round(node.getBoundingClientRect().height)));
  assert.equal(await page.locator('#brain-list button').count(),1);
+ await page.locator('#brain-panel-toggle').click();
+ assert.equal(await page.locator('#brain-panel-toggle').getAttribute('aria-expanded'),'false');
+ await page.locator('#brain-panel-toggle').click();
+ assert.equal(await page.locator('#brain-panel-toggle').getAttribute('aria-expanded'),'true');
  await page.locator('[data-layout=hex]').click();
  await page.locator('[data-theme=ocean]').click();
  await page.locator('#brain-save').click();
