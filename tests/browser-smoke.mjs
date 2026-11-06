@@ -28,7 +28,13 @@ try {
  await page.locator('#model').fill('mock/chat');
  await page.locator('#settings-form button[type=submit]').click();
  await page.getByText('Настройки сохранены.',{exact:true}).waitFor();
- await page.locator('[data-nav=chat]').click();
+ assert.equal(await page.locator('[data-nav=chat]').count(),0);
+ await page.locator('#avatar').click();
+ assert.equal(await page.locator('#avatar').getAttribute('aria-expanded'),'true');
+ await page.locator('#close-chat').click();
+ await page.locator('#chat-page').waitFor({state:'hidden'});
+ assert.equal(new URL(page.url()).pathname,'/settings');
+ await page.locator('#avatar').click();
  await page.locator('#prompt').fill('Помни мой проект');
  await page.locator('#send').click();
  await page.getByText('Хозяин, переписка сохранена.',{exact:true}).waitFor();
@@ -37,6 +43,7 @@ try {
  await page.getByText('Хозяин, переписка сохранена.',{exact:true}).waitFor();
  await page.locator('#new-chat').click();
  await page.locator('#welcome').waitFor({state:'visible'});
+ await page.locator('#close-chat').click();
  await page.locator('[data-nav=history]').click();
  await page.locator('#history-search').fill('ПОМНИ');
  await page.locator('.conversation-row').waitFor();
@@ -57,6 +64,9 @@ try {
    await page.waitForFunction(()=>!document.querySelector('#send').disabled);
    assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true,path+' overflows');
  }
+ await page.locator('#avatar').click();
+ await page.locator('#chat-page').waitFor({state:'visible'});
+ assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true,'mobile avatar chat overflows');
  await page.screenshot({path:fileURLToPath(new URL('../.runtime/ui-mobile.png',import.meta.url))});
  assert.deepEqual(errors,[]);
  assert.equal(calls,1,'Only the explicit chat should contact Cloud.ru');
