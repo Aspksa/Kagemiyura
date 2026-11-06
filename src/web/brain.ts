@@ -235,21 +235,6 @@ export function createBrain(openConversation: (id: string) => Promise<void>) {
         else {const cols=Math.ceil(Math.sqrt(total));const spacing=Math.min(100,base*1.6/Math.max(cols-1,1));const row=Math.floor(index/cols);x=(index%cols-(cols-1)/2+(row%2)*.5)*spacing;y=(row-(Math.ceil(total/cols)-1)/2)*spacing*.87;}
         index++; const radius=Math.max(5,Math.min(12,(5+Math.log2(item.messageCount+1))*config.size/100)); const c=color(groupIndex); points.push({item,x,y,radius,color:c});
         if(config.layout==='hud' && view==='map'){ctx.strokeStyle=c+'55';ctx.lineWidth=.8;ctx.strokeRect(x-radius*2.4,y-radius*2.4,radius*4.8,radius*4.8);ctx.strokeStyle=c+'aa';ctx.beginPath();ctx.moveTo(x-radius*2.4,y-radius*1.5);ctx.lineTo(x-radius*2.4,y-radius*2.4);ctx.lineTo(x-radius*1.5,y-radius*2.4);ctx.stroke();}
-        if(config.layout==='circle' && view==='map' && !reducedMotion.matches && config.speed>0){
-          // Moving light packets travel along the group-to-node links.
-          const origin=clusterCenters[groupIndex]!;
-          const dx=x-origin.x,dy=y-origin.y;
-          const distance=Math.hypot(dx,dy);
-          if(distance>5){
-            const t=(phase*11+index*.173)%1;
-            const px=origin.x+dx*t,py=origin.y+dy*t;
-            ctx.save();
-            ctx.globalAlpha=.3+.7*Math.sin(t*Math.PI);
-            ctx.fillStyle=c;ctx.shadowColor=c;ctx.shadowBlur=10;
-            ctx.beginPath();ctx.arc(px,py,1.8,0,Math.PI*2);ctx.fill();
-            ctx.restore();
-          }
-        }
         if(config.layout==='circle' && view==='map'){
           // Video-style micro-square constellations around each conversation anchor.
           // Dot count is bounded so long conversations do not overload Canvas.
@@ -273,6 +258,22 @@ export function createBrain(openConversation: (id: string) => Promise<void>) {
           ctx.strokeStyle=`rgba(140,210,205,${config.linkStrength/400})`;
           ctx.lineWidth=.7*config.lineWidth/100;ctx.stroke();
         }
+        if(config.layout==='circle' && view==='map' && !reducedMotion.matches && config.speed>0){
+          // Moving light packets travel along the group-to-node links.
+          const origin=clusterCenters[groupIndex]!;
+          const dx=x-origin.x,dy=y-origin.y;
+          const distance=Math.hypot(dx,dy);
+          if(distance>5){
+            const t=(phase*11+index*.173)%1;
+            const px=origin.x+dx*t,py=origin.y+dy*t;
+            ctx.save();
+            ctx.globalAlpha=.3+.7*Math.sin(t*Math.PI);
+            ctx.fillStyle=c;ctx.shadowColor=c;ctx.shadowBlur=10;
+            ctx.beginPath();ctx.arc(px,py,1.8,0,Math.PI*2);ctx.fill();
+            ctx.restore();
+          }
+        }
+
         if(config.layout==='hex' && view==='map'){ctx.beginPath();for(let j=0;j<6;j++){const a=Math.PI/3*j;const px=x+Math.cos(a)*radius*2.1,py=y+Math.sin(a)*radius*2.1;j===0?ctx.moveTo(px,py):ctx.lineTo(px,py);}ctx.closePath();ctx.strokeStyle=c+'55';ctx.stroke();}
         ctx.beginPath();ctx.arc(x,y,radius*1.45,0,Math.PI*2);ctx.strokeStyle=c+'aa';ctx.lineWidth=.8;ctx.fillStyle='#04111b';ctx.fill();ctx.stroke();
         if(config.layout==='rings'||view==='command'){ctx.strokeStyle=c;ctx.lineWidth=.8;ctx.strokeRect(x-3,y-2.5,6,4.5);ctx.beginPath();ctx.moveTo(x-1,y+2);ctx.lineTo(x-2,y+4);ctx.stroke();}
