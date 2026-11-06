@@ -197,6 +197,21 @@ export function createBrain(openConversation: (id: string) => Promise<void>) {
     offsetY=py-(py-offsetY)*scale/previous;
     draw();
   },{passive:false});
+  canvas.addEventListener('keydown',event=>{
+    const step=event.shiftKey?80:32;
+    switch(event.key){
+      case 'ArrowLeft': offsetX+=step; break;
+      case 'ArrowRight': offsetX-=step; break;
+      case 'ArrowUp': offsetY+=step; break;
+      case 'ArrowDown': offsetY-=step; break;
+      case '+': case '=': scale=Math.min(3,scale*1.2); break;
+      case '-': case '_': scale=Math.max(.4,scale/1.2); break;
+      case '0': scale=1;offsetX=0;offsetY=0;break;
+      default:return;
+    }
+    event.preventDefault();
+    draw();
+  });
   el<HTMLButtonElement>('brain-panel-toggle').addEventListener('click',event=>{const button=event.currentTarget as HTMLButtonElement;const panel=document.querySelector<HTMLElement>('.brain-panel')!;panel.hidden=!panel.hidden;button.setAttribute('aria-expanded',String(!panel.hidden));button.setAttribute('aria-label',panel.hidden?'Показать настройки карты':'Скрыть настройки карты');requestAnimationFrame(resize);});
   el('brain-plus').addEventListener('click',()=>{scale=Math.min(3,scale*1.2);draw();});el('brain-minus').addEventListener('click',()=>{scale=Math.max(.4,scale/1.2);draw();});
   el('brain-center').addEventListener('click',()=>{scale=1;offsetX=0;offsetY=0;draw();});
