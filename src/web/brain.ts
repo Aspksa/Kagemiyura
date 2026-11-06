@@ -141,6 +141,14 @@ export function createBrain(openConversation: (id: string) => Promise<void>) {
     const total=Math.max(items.length,1); let index=0;
     const clusterCount=Math.max(grouped.length,1);
     const clusterCenters=grouped.map((_,i)=>{
+      if(config.layout==='circle' && view==='map'){
+        const cols=Math.max(1,Math.ceil(Math.sqrt(clusterCount*1.45)));
+        const rows=Math.ceil(clusterCount/cols);
+        const col=i%cols,row=Math.floor(i/cols);
+        const stepX=Math.max(125,Math.min(240,base*1.75/Math.max(cols-1,1)));
+        const stepY=Math.max(115,Math.min(205,base*1.75/Math.max(rows-1,1)));
+        return {x:(col-(cols-1)/2)*stepX+(row%2)*stepX*.17,y:(row-(rows-1)/2)*stepY};
+      }
       const a=i/clusterCount*Math.PI*2-Math.PI/2;
       const orbit=clusterCount===1?0:base*.57;
       return {x:Math.cos(a)*orbit,y:Math.sin(a)*orbit};
@@ -200,17 +208,12 @@ export function createBrain(openConversation: (id: string) => Promise<void>) {
         }
         else if(config.layout==='circle') {
           // Reference video: separate constellation islands rather than overlapping orbits.
-          const cols=Math.max(1,Math.ceil(Math.sqrt(clusterCount*1.45)));
-          const rows=Math.ceil(clusterCount/cols);
-          const col=groupIndex%cols,row=Math.floor(groupIndex/cols);
-          const stepX=Math.max(125,Math.min(240,base*1.75/Math.max(cols-1,1)));
-          const stepY=Math.max(115,Math.min(205,base*1.75/Math.max(rows-1,1)));
-          const centerX=(col-(cols-1)/2)*stepX+(row%2)*stepX*.17;
-          const centerY=(row-(rows-1)/2)*stepY;
+          const center=clusterCenters[groupIndex]!;
+          const stepX=Math.max(125,Math.min(240,base*1.75/Math.max(Math.ceil(Math.sqrt(clusterCount*1.45))-1,1)));
           const angle=localIndex*2.399963229728653;
           const radius=Math.sqrt((localIndex+.5)/Math.max(list.length,1))*Math.min(48,stepX*.24);
-          x=centerX+Math.cos(angle)*radius;
-          y=centerY+Math.sin(angle)*radius;
+          x=center.x+Math.cos(angle)*radius;
+          y=center.y+Math.sin(angle)*radius;
         }
         else if(config.layout==='force') {const p=forceLayout(total,base)[index]!;x=p.x;y=p.y;}
         else if(config.layout==='grid'||config.layout==='hud') {const cols=Math.ceil(Math.sqrt(total)); const spacing=Math.min(95,base*1.6/Math.max(cols-1,1)); x=(index%cols-(cols-1)/2)*spacing;y=(Math.floor(index/cols)-(Math.ceil(total/cols)-1)/2)*spacing;}
