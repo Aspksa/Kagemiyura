@@ -346,23 +346,27 @@ type AvatarValues = {
   size: number; brightness: number; contrast: number; saturation: number; hue: number; opacity: number;
   glow: number; color: string; circle: boolean; circleSize: number; circleSpeed: number; shadow: number;
   particles: string; particleCount: number; fire: boolean; fireStrength: number; motion: string; motionSpeed: number;
+  warmth: number; sharpness: number; halo: boolean; haloStrength: number; circleOpacity: number; particleSize: number; particleSpeed: number; particleOpacity: number;
 };
-const avatarDefaults: AvatarValues = { size: 140, brightness: 100, contrast: 100, saturation: 100, hue: 0, opacity: 100, glow: 45, color: '#e9b968', circle: false, circleSize: 105, circleSpeed: 20, shadow: 50, particles: 'none', particleCount: 8, fire: false, fireStrength: 45, motion: 'still', motionSpeed: 5 };
+const avatarDefaults: AvatarValues = { size: 140, brightness: 100, contrast: 100, saturation: 100, hue: 0, opacity: 100, glow: 45, color: '#e9b968', circle: false, circleSize: 105, circleSpeed: 20, shadow: 50, particles: 'none', particleCount: 8, fire: false, fireStrength: 45, motion: 'still', motionSpeed: 5, warmth: 0, sharpness: 0, halo: false, haloStrength: 45, circleOpacity: 75, particleSize: 100, particleSpeed: 100, particleOpacity: 85 };
 type AvatarKey = keyof AvatarValues;
 type AvatarControl = { key: AvatarKey; label: string; kind: 'range' | 'color' | 'check' | 'select'; min?: number; max?: number; step?: number; unit?: string; options?: [string, string][]; hint?: string };
 const avatarGroups: { title: string; description: string; controls: AvatarControl[] }[] = [
   { title: 'Образ', description: 'Размер и цвет изображения.', controls: [
     {key:'size',label:'Размер',kind:'range',min:70,max:260,unit:'пкс'}, {key:'opacity',label:'Непрозрачность',kind:'range',min:20,max:100,unit:'%'},
     {key:'brightness',label:'Яркость',kind:'range',min:40,max:160,unit:'%'}, {key:'contrast',label:'Контраст',kind:'range',min:40,max:160,unit:'%'},
-    {key:'saturation',label:'Насыщенность',kind:'range',min:0,max:200,unit:'%'}, {key:'hue',label:'Оттенок',kind:'range',min:-180,max:180,unit:'°'} ] },
+    {key:'saturation',label:'Насыщенность',kind:'range',min:0,max:200,unit:'%'}, {key:'hue',label:'Оттенок',kind:'range',min:-180,max:180,unit:'°'},
+    {key:'warmth',label:'Тёплый тон',kind:'range',min:0,max:100,unit:'%'}, {key:'sharpness',label:'Мягкость',kind:'range',min:0,max:30,unit:'%',hint:'Добавляет мягкое размытие.'} ] },
   { title: 'Магия', description: 'Сияние, круг и тень у ног.', controls: [
     {key:'color',label:'Цвет магии',kind:'color'}, {key:'glow',label:'Сияние',kind:'range',min:0,max:100,unit:'%'},
     {key:'circle',label:'Магический круг',kind:'check'}, {key:'circleSize',label:'Размер круга',kind:'range',min:60,max:150,unit:'%'},
-    {key:'circleSpeed',label:'Оборот круга',kind:'range',min:4,max:60,unit:'сек',hint:'Меньше секунд — быстрее вращение.'},
+    {key:'circleSpeed',label:'Оборот круга',kind:'range',min:4,max:60,unit:'сек',hint:'Меньше секунд — быстрее вращение.'}, {key:'circleOpacity',label:'Яркость круга',kind:'range',min:0,max:100,unit:'%'},
+    {key:'halo',label:'Магическая аура',kind:'check'}, {key:'haloStrength',label:'Сила ауры',kind:'range',min:0,max:100,unit:'%'},
     {key:'shadow',label:'Тень у ног',kind:'range',min:0,max:100,unit:'%'} ] },
   { title: 'Частицы', description: 'Небольшие эффекты вокруг аватара.', controls: [
-    {key:'particles',label:'Вид частиц',kind:'select',options:[['none','Нет'],['sparks','Золотые искры'],['sakura','Сакура'],['fireflies','Светлячки']]},
-    {key:'particleCount',label:'Количество',kind:'range',min:2,max:20,unit:'шт.'},
+    {key:'particles',label:'Вид частиц',kind:'select',options:[['none','Нет'],['sparks','Золотые искры'],['sakura','Сакура'],['fireflies','Светлячки'],['stars','Звёздная пыль'],['embers','Тлеющие угольки']]},
+    {key:'particleCount',label:'Количество',kind:'range',min:2,max:30,unit:'шт.'}, {key:'particleSize',label:'Размер частиц',kind:'range',min:40,max:200,unit:'%'},
+    {key:'particleSpeed',label:'Скорость частиц',kind:'range',min:50,max:200,unit:'%'}, {key:'particleOpacity',label:'Яркость частиц',kind:'range',min:10,max:100,unit:'%'},
     {key:'fire',label:'Огонь у хвостов',kind:'check',hint:'Декоративное пламя за нижней частью изображения.'}, {key:'fireStrength',label:'Сила огня',kind:'range',min:0,max:100,unit:'%'} ] },
   { title: 'Движение и характер', description: 'Настроение влияет на движение изображения, а не на характер ответов ИИ.', controls: [
     {key:'motion',label:'Настроение движения',kind:'select',options:[['still','Без движения'],['gentle','Нежная'],['lively','Оживлённая'],['mystic','Таинственная']]},
@@ -390,19 +394,28 @@ function applyAvatar() {
   style.setProperty('--avatar-size', `${v.size}px`); style.setProperty('--avatar-brightness', `${v.brightness}%`);
   style.setProperty('--avatar-contrast', `${v.contrast}%`); style.setProperty('--avatar-saturation', `${v.saturation}%`);
   style.setProperty('--avatar-hue', `${v.hue}deg`); style.setProperty('--avatar-opacity', String(v.opacity / 100));
+  style.setProperty('--avatar-warmth', `${v.warmth}%`); style.setProperty('--avatar-softness', `${v.sharpness / 20}px`);
   style.setProperty('--magic-color', v.color); style.setProperty('--glow', `${v.glow / 5}px`);
   style.setProperty('--circle-size', `${v.circleSize}%`); style.setProperty('--circle-duration', `${v.circleSpeed}s`);
   style.setProperty('--shadow-opacity', String(v.shadow / 100)); style.setProperty('--fire-opacity', String(v.fire ? v.fireStrength / 100 : 0));
   style.setProperty('--motion-duration', `${v.motionSpeed}s`);
+  style.setProperty('--circle-opacity', String(v.circleOpacity / 100)); style.setProperty('--halo-opacity', String(v.halo ? v.haloStrength / 100 : 0));
+  style.setProperty('--particle-scale', String(v.particleSize / 100)); style.setProperty('--particle-opacity', String(v.particleOpacity / 100));
   avatarButton.dataset.circle = String(v.circle); avatarButton.dataset.motion = v.motion; avatarButton.dataset.particles = v.particles;
   const container = avatarButton.querySelector<HTMLElement>('.avatar-particles')!;
   container.replaceChildren();
   if (v.particles !== 'none') for (let i = 0; i < v.particleCount; i++) {
     const spark = document.createElement('span'); spark.className = 'avatar-particle';
-    spark.textContent = v.particles === 'sakura' ? '✿' : v.particles === 'sparks' ? '✦' : '•';
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.setAttribute('viewBox','0 0 24 24'); svg.setAttribute('aria-hidden','true');
+    const path = document.createElementNS('http://www.w3.org/2000/svg','path');
+    const shape = v.particles === 'sakura' ? 'M12 21C9 17 3 15 4 9C5 3 10 2 12 7C14 2 19 3 20 9C21 15 15 18 12 21Z' : v.particles === 'fireflies' ? 'M12 3C14 7 15 8 15 11C15 14 14 17 12 20C10 17 9 14 9 11C9 8 10 7 12 3Z' : v.particles === 'embers' ? 'M12 2C14 7 19 9 18 15C18 20 15 22 12 22C8 22 5 19 6 15C7 11 10 8 12 2Z' : 'M12 1L14 9L22 12L14 14L12 23L10 14L2 12L10 9Z';
+    path.setAttribute('d',shape); svg.append(path); spark.append(svg);
     spark.style.left = `${5 + (i * 37 % 90)}%`; spark.style.animationDelay = `${-(i * 0.61)}s`;
-    spark.style.animationDuration = `${3 + (i % 4)}s`; container.append(spark);
+    spark.style.animationDuration = `${(3 + (i % 4)) * 100 / v.particleSpeed}s`; container.append(spark);
   }
+  const preview = avatarButton.cloneNode(true) as HTMLButtonElement; preview.removeAttribute('id'); preview.tabIndex = -1; preview.classList.add('avatar-preview-copy');
+  element('avatar-preview-art').replaceChildren(preview);
   try { localStorage.setItem('kagemiyura-avatar-v1', JSON.stringify(v)); } catch { /* browser may block storage */ }
 }
 function renderAvatarSettings() {
@@ -416,6 +429,19 @@ function renderAvatarSettings() {
   const heading = document.createElement('h3'); heading.textContent = group.title;
   const description = document.createElement('p'); description.className = 'avatar-description'; description.textContent = group.description;
   controls.append(heading, description);
+  if (activeAvatarTab === 0) {
+    const presets = document.createElement('div'); presets.className = 'avatar-presets';
+    const choices = [
+      {title:'Оригинал', values:{brightness:100, contrast:100, saturation:100, hue:0, warmth:0, sharpness:0}},
+      {title:'Тёплый', values:{brightness:105, contrast:102, saturation:115, hue:0, warmth:20, sharpness:0}},
+      {title:'Лунный', values:{brightness:108, contrast:95, saturation:72, hue:18, warmth:0, sharpness:4}},
+    ];
+    for (const preset of choices) {
+      const button = document.createElement('button'); button.type = 'button'; button.textContent = preset.title;
+      button.addEventListener('click', () => { Object.assign(avatarValues, preset.values); applyAvatar(); renderAvatarSettings(); }); presets.append(button);
+    }
+    controls.append(presets);
+  }
   for (const config of group.controls) {
     const row = document.createElement('label'); row.className = 'avatar-control';
     const title = document.createElement('span'); title.className = 'avatar-control-title'; title.textContent = config.label;

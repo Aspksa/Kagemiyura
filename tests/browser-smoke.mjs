@@ -31,7 +31,12 @@ try {
  assert.equal(await page.locator('#avatar').getAttribute('data-circle'),'true');
  await page.getByRole('button',{name:'Частицы',exact:true}).click();
  await page.getByRole('combobox',{name:'Вид частиц'}).selectOption('sakura');
- assert.equal(await page.locator('.avatar-particle').count(),8);
+ assert.equal(await page.locator('#avatar .avatar-particle').count(),8);
+ assert.equal(await page.locator('#avatar-preview-art .avatar-particle').count(),8);
+ assert.equal(await page.locator('#avatar .avatar-particle svg path').count(),8);
+ await page.getByRole('combobox',{name:'Вид частиц'}).selectOption('embers');
+ assert.equal(await page.locator('#avatar').getAttribute('data-particles'),'embers');
+ await page.getByRole('combobox',{name:'Вид частиц'}).selectOption('sakura');
  await page.locator('#avatar-settings-close').click();
  await page.reload();
  await page.waitForFunction(()=>document.querySelector('#avatar').style.getPropertyValue('--avatar-size') !== '');
