@@ -36,6 +36,7 @@ export function createBrain(openConversation: (id: string) => Promise<void>) {
   let selected: ConversationSummary | undefined; let suppressClickUntil=0; let drag: { x:number; y:number; startX:number; startY:number; moved:boolean } | undefined;
   let view: 'command'|'map' = 'command'; let clock: ReturnType<typeof setInterval> | undefined;
   let transition: { image: HTMLCanvasElement; started: number } | undefined;
+  let blueprint: HTMLCanvasElement | undefined;
   let cameraMotion: {fromScale:number;fromX:number;fromY:number;toScale:number;toX:number;toY:number;started:number} | undefined;
   function moveCamera(toScale:number,toX:number,toY:number) {
     const nextScale=Math.max(.4,Math.min(3,toScale));
@@ -112,18 +113,30 @@ export function createBrain(openConversation: (id: string) => Promise<void>) {
   }
   function draw() {
     if (!visible || width < 2) return;
-    ctx.clearRect(0,0,width,height); ctx.fillStyle='#020d19'; ctx.fillRect(0,0,width,height);
-    // Reference-video background: a faint staggered hexagonal blueprint texture.
-    ctx.save();ctx.strokeStyle='rgba(38,82,102,.105)';ctx.lineWidth=.7;
-    const hexR=23,hexDx=hexR*3.3,hexDy=hexR*2.86;
-    for(let row=0;row<Math.ceil(height/hexDy)+1;row++)for(let col=0;col<Math.ceil(width/hexDx)+1;col++){
-      const x=col*hexDx+(row%2)*hexDx*.5,y=row*hexDy;
-      ctx.beginPath();for(let edge=0;edge<6;edge++){
-        const angle=edge*Math.PI/3-Math.PI/6;
-        const px=x+Math.cos(angle)*hexR,py=y+Math.sin(angle)*hexR;
-        if(edge===0)ctx.moveTo(px,py);else ctx.lineTo(px,py);
-      }ctx.closePath();ctx.stroke();
-    }ctx.restore();
+    // Paint the static blueprint once per canvas size instead of rebuilding
+    // hundreds of hexagonal paths on every animation frame.
+    if(!blueprint || blueprint.width!==canvas.width || blueprint.height!==canvas.height){
+      const texture=document.createElement('canvas');
+      texture.width=canvas.width;texture.height=canvas.height;
+      const bg=texture.getContext('2d');
+      if(bg){
+        const ratio=canvas.width/width;bg.setTransform(ratio,0,0,ratio,0,0);
+        bg.fillStyle='#020d19';bg.fillRect(0,0,width,height);
+        bg.strokeStyle='rgba(38,82,102,.105)';bg.lineWidth=.7;
+        const r=23,dx=r*3.3,dy=r*2.86;
+        for(let row=0;row<Math.ceil(height/dy)+1;row++)for(let col=0;col<Math.ceil(width/dx)+1;col++){
+          const x=col*dx+(row%2)*dx*.5,y=row*dy;
+          bg.beginPath();for(let edge=0;edge<6;edge++){
+            const angle=edge*Math.PI/3-Math.PI/6;
+            const px=x+Math.cos(angle)*r,py=y+Math.sin(angle)*r;
+            if(edge===0)bg.moveTo(px,py);else bg.lineTo(px,py);
+          }bg.closePath();bg.stroke();
+        }
+      }
+      blueprint=texture;
+    }
+    ctx.clearRect(0,0,width,height);
+    ctx.drawImage(blueprint,0,0,blueprint.width,blueprint.height,0,0,width,height);
     ctx.save(); ctx.translate(width/2+offsetX,height/2+offsetY); ctx.scale(scale,scale);
     ctx.lineWidth=config.lineWidth/100;
     const base = Math.max(100, Math.min(width,height)*(view==='command'?.34:.43)); const palette=palettes[config.theme]; const grouped=groups(); points=[];
@@ -372,7 +385,7 @@ export function createBrain(openConversation: (id: string) => Promise<void>) {
     if(view==='map' && config.layout==='rings'){
       ctx.save();
       for(let i=0;i<points.length;i++){
-        const p=points[i]!,a=i/Math.max(points.length,1)*Math.PI*2-Math.PI/2+phase;
+        const p=points[i]!,a=i/Math.max(points.length,1)*Math.PI*2-Math.PI/2;
         const r=base*(.76+(i%4)*.064),x=Math.cos(a)*r,y=Math.sin(a)*r;
         ctx.beginPath();ctx.arc(x,y,2.3,0,Math.PI*2);ctx.fillStyle=p.color;ctx.fill();
         ctx.beginPath();ctx.arc(x,y,5,0,Math.PI*2);ctx.strokeStyle=p.color+'55';ctx.lineWidth=.7;ctx.stroke();
