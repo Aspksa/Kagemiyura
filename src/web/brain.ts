@@ -3,9 +3,9 @@ import type { Conversation, ConversationSummary } from '../shared/types.js';
 type Layout = 'rings' | 'circle' | 'hex' | 'grid' | 'force' | 'hud';
 type Grouping = 'months' | 'all';
 type Theme = 'gold' | 'ocean' | 'violet';
-type BrainSettings = { layout: Layout; grouping: Grouping; theme: Theme; speed: number; size: number; labels: boolean };
+type BrainSettings = { layout: Layout; grouping: Grouping; theme: Theme; speed: number; size: number; labels: boolean; lineWidth: number; linkStrength: number };
 type Point = { item: ConversationSummary; x: number; y: number; radius: number; color: string };
-const defaults: BrainSettings = { layout:'rings', grouping:'months', theme:'ocean', speed:20, size:100, labels:true };
+const defaults: BrainSettings = { layout:'rings', grouping:'months', theme:'ocean', speed:20, size:100, labels:true, lineWidth:100, linkStrength:45 };
 const palettes: Record<Theme, string[]> = { gold:['#d9bd7e','#e7d8a3','#b49b67','#f0cb8c','#a68b60'], ocean:['#45d0c4','#80bff1','#75e0b3','#8998e8','#aecfe7'], violet:['#bf9ceb','#edbad0','#a2baf1','#dab1e5','#dfc597'] };
 function el<T extends HTMLElement>(id: string): T { const node = document.getElementById(id); if (!node) throw Error(`Missing ${id}`); return node as T; }
 function settings(): BrainSettings {
@@ -17,6 +17,8 @@ function settings(): BrainSettings {
     if (saved.theme && ['gold','ocean','violet'].includes(saved.theme)) value.theme = saved.theme;
     if (typeof saved.speed === 'number' && Number.isFinite(saved.speed)) value.speed = Math.max(0, Math.min(100, saved.speed));
     if (typeof saved.size === 'number' && Number.isFinite(saved.size)) value.size = Math.max(70, Math.min(150, saved.size));
+    if (typeof saved.lineWidth === 'number' && Number.isFinite(saved.lineWidth)) value.lineWidth=Math.max(20,Math.min(200,saved.lineWidth));
+    if (typeof saved.linkStrength === 'number' && Number.isFinite(saved.linkStrength)) value.linkStrength=Math.max(0,Math.min(100,saved.linkStrength));
     if (typeof saved.labels === 'boolean') value.labels = saved.labels;
   } catch { /* storage may be unavailable */ }
   return value;
@@ -28,6 +30,7 @@ export function createBrain(openConversation: (id: string) => Promise<void>) {
   const stage = canvas.parentElement!; const search = el<HTMLInputElement>('brain-search');
   const speed = el<HTMLInputElement>('brain-speed'); const size = el<HTMLInputElement>('brain-size'); const labels = el<HTMLInputElement>('brain-labels');
   const dialog = el<HTMLDialogElement>('brain-details');
+  const lineWidth = el<HTMLInputElement>('brain-line-width'); const linkStrength = el<HTMLInputElement>('brain-link-strength');
   let config = settings(); let items: ConversationSummary[] = []; let points: Point[] = []; let hasMore = false; let requestId = 0; let detailId = 0;
   let width = 1; let height = 1; let scale = 1; let offsetX = 0; let offsetY = 0; let phase = 0; let last = 0; let frame = 0; let visible = false;
   let selected: ConversationSummary | undefined; let suppressClickUntil=0; let drag: { x:number; y:number; startX:number; startY:number; moved:boolean } | undefined;
@@ -37,6 +40,8 @@ export function createBrain(openConversation: (id: string) => Promise<void>) {
   const color = (index: number) => palettes[config.theme][index % 5]!;
   function syncControls() {
     speed.value = String(config.speed); size.value = String(config.size); labels.checked = config.labels;
+    lineWidth.value=String(config.lineWidth);linkStrength.value=String(config.linkStrength);
+    el('brain-line-width-value').textContent=`${config.lineWidth}%`;el('brain-link-strength-value').textContent=`${config.linkStrength}%`;
     el('brain-speed-value').textContent = `${config.speed}%`; el('brain-size-value').textContent = `${config.size}%`;
     document.querySelectorAll<HTMLButtonElement>('[data-layout]').forEach(b=>{ const on=b.dataset.layout===config.layout; b.classList.toggle('active',on); b.setAttribute('aria-pressed',String(on)); });
     document.querySelectorAll<HTMLButtonElement>('[data-group]').forEach(b=>{ const on=b.dataset.group===config.grouping; b.classList.toggle('active',on); b.setAttribute('aria-pressed',String(on)); });
@@ -85,6 +90,7 @@ export function createBrain(openConversation: (id: string) => Promise<void>) {
     if (!visible || width < 2) return;
     ctx.clearRect(0,0,width,height); ctx.fillStyle='#020d19'; ctx.fillRect(0,0,width,height);
     ctx.save(); ctx.translate(width/2+offsetX,height/2+offsetY); ctx.scale(scale,scale);
+    ctx.lineWidth=config.lineWidth/100;
     const base = Math.max(100, Math.min(width,height)*(view==='command'?.34:.43)); const palette=palettes[config.theme]; const grouped=groups(); points=[];
     const stroke=(radius:number, alpha:number) => {ctx.beginPath();ctx.arc(0,0,radius,0,Math.PI*2);ctx.strokeStyle=`rgba(164,186,183,${alpha})`;ctx.lineWidth=0.8;ctx.stroke();};
     if(view==='command'||config.layout==='rings'||config.layout==='circle')for (const ring of [.22,.27,.83,.89,.95,.98]) stroke(base*ring,0.10);
@@ -129,7 +135,7 @@ export function createBrain(openConversation: (id: string) => Promise<void>) {
           const a=index/total*Math.PI*2-Math.PI/2+phase;
           const outer=base*(.76+(index%4)*.064); x=Math.cos(a)*outer; y=Math.sin(a)*outer;
           const mid=base*.47; const innerX=Math.cos(a)*mid,innerY=Math.sin(a)*mid; const c=color(groupIndex);
-          ctx.beginPath();ctx.moveTo(innerX,innerY);ctx.lineTo(x,y);ctx.strokeStyle=c+'25';ctx.lineWidth=.65;ctx.stroke();
+          ctx.beginPath();ctx.moveTo(innerX,innerY);ctx.lineTo(x,y);ctx.strokeStyle=c+'25';ctx.lineWidth=.65*config.lineWidth/100;ctx.stroke();
           const dots=Math.min(item.messageCount,48);
           for(let k=0;k<dots;k++) {const row=Math.floor(k/6),col=k%6;const radius=base*(.32+row*.023);const delta=(col-2.5)*Math.min(.018,1.4/total);const px=Math.cos(a+delta)*radius,py=Math.sin(a+delta)*radius;
             ctx.fillStyle=c+(k%7===0?'cc':'66');ctx.fillRect(px-1.1,py-1.1,2.2,2.2);
@@ -146,7 +152,7 @@ export function createBrain(openConversation: (id: string) => Promise<void>) {
         else {const cols=Math.ceil(Math.sqrt(total));const spacing=Math.min(100,base*1.6/Math.max(cols-1,1));const row=Math.floor(index/cols);x=(index%cols-(cols-1)/2+(row%2)*.5)*spacing;y=(row-(Math.ceil(total/cols)-1)/2)*spacing*.87;}
         index++; const radius=Math.max(5,Math.min(12,(5+Math.log2(item.messageCount+1))*config.size/100)); const c=color(groupIndex); points.push({item,x,y,radius,color:c});
         if(config.layout==='hud' && view==='map'){ctx.strokeStyle=c+'55';ctx.lineWidth=.8;ctx.strokeRect(x-radius*2.4,y-radius*2.4,radius*4.8,radius*4.8);ctx.strokeStyle=c+'aa';ctx.beginPath();ctx.moveTo(x-radius*2.4,y-radius*1.5);ctx.lineTo(x-radius*2.4,y-radius*2.4);ctx.lineTo(x-radius*1.5,y-radius*2.4);ctx.stroke();}
-        if(config.layout==='circle' && view==='map'){ctx.beginPath();ctx.moveTo(clusterCenters[groupIndex]!.x,clusterCenters[groupIndex]!.y);ctx.lineTo(x,y);ctx.strokeStyle='rgba(140,170,175,.20)';ctx.lineWidth=.7;ctx.stroke();}
+        if(config.layout==='circle' && view==='map'){ctx.beginPath();ctx.moveTo(clusterCenters[groupIndex]!.x,clusterCenters[groupIndex]!.y);ctx.lineTo(x,y);ctx.strokeStyle=`rgba(140,210,205,${config.linkStrength/400})`;ctx.lineWidth=.7*config.lineWidth/100;ctx.stroke();}
         if(config.layout==='hex' && view==='map'){ctx.beginPath();for(let j=0;j<6;j++){const a=Math.PI/3*j;const px=x+Math.cos(a)*radius*2.1,py=y+Math.sin(a)*radius*2.1;j===0?ctx.moveTo(px,py):ctx.lineTo(px,py);}ctx.closePath();ctx.strokeStyle=c+'55';ctx.stroke();}
         ctx.beginPath();ctx.arc(x,y,radius*1.45,0,Math.PI*2);ctx.strokeStyle=c+'aa';ctx.lineWidth=.8;ctx.fillStyle='#04111b';ctx.fill();ctx.stroke();
         if(config.layout==='rings'||view==='command'){ctx.strokeStyle=c;ctx.lineWidth=.8;ctx.strokeRect(x-3,y-2.5,6,4.5);ctx.beginPath();ctx.moveTo(x-1,y+2);ctx.lineTo(x-2,y+4);ctx.stroke();}
@@ -252,11 +258,14 @@ export function createBrain(openConversation: (id: string) => Promise<void>) {
   el<HTMLButtonElement>('brain-panel-toggle').addEventListener('click',event=>{const button=event.currentTarget as HTMLButtonElement;const panel=document.querySelector<HTMLElement>('.brain-panel')!;panel.hidden=!panel.hidden;button.setAttribute('aria-expanded',String(!panel.hidden));button.setAttribute('aria-label',panel.hidden?'Показать настройки карты':'Скрыть настройки карты');requestAnimationFrame(resize);});
   el('brain-plus').addEventListener('click',()=>{scale=Math.min(3,scale*1.2);draw();});el('brain-minus').addEventListener('click',()=>{scale=Math.max(.4,scale/1.2);draw();});
   el('brain-center').addEventListener('click',()=>{scale=1;offsetX=0;offsetY=0;draw();});
+  el('brain-fit').addEventListener('click',()=>{scale=.85;offsetX=0;offsetY=0;draw();});
   document.querySelectorAll<HTMLButtonElement>('[data-layout]').forEach(b=>b.addEventListener('click',()=>{config.layout=b.dataset.layout as Layout;syncControls();draw();}));
   document.querySelectorAll<HTMLButtonElement>('[data-group]').forEach(b=>b.addEventListener('click',()=>{config.grouping=b.dataset.group as Grouping;syncControls();draw();}));
   document.querySelectorAll<HTMLButtonElement>('[data-theme]').forEach(b=>b.addEventListener('click',()=>{config.theme=b.dataset.theme as Theme;syncControls();draw();}));
   speed.addEventListener('input',()=>{config.speed=Number(speed.value);syncControls();});size.addEventListener('input',()=>{config.size=Number(size.value);syncControls();draw();});
   labels.addEventListener('change',()=>{config.labels=labels.checked;draw();});
+  lineWidth.addEventListener('input',()=>{config.lineWidth=Number(lineWidth.value);syncControls();draw();});
+  linkStrength.addEventListener('input',()=>{config.linkStrength=Number(linkStrength.value);syncControls();draw();});
   let timer:ReturnType<typeof setTimeout>;search.addEventListener('input',()=>{++requestId;clearTimeout(timer);timer=setTimeout(()=>{void load();},250);});
   el('brain-refresh').addEventListener('click',()=>{void load();});el('brain-more').addEventListener('click',()=>{void load(true);});el('brain-save').addEventListener('click',save);
   el('command-load-more').addEventListener('click',()=>{void load(true);});
