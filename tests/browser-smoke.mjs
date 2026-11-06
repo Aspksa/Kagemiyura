@@ -27,10 +27,10 @@ try {
  await page.getByLabel('Яркость',{exact:true}).evaluate(node=>{node.value='125';node.dispatchEvent(new Event('input',{bubbles:true}));});
  assert.equal(await page.locator('#avatar').evaluate(node=>node.style.getPropertyValue('--avatar-brightness')),'125%');
  await page.getByRole('button',{name:'Магия',exact:true}).click();
- await page.getByLabel('Магический круг').check();
+ await page.getByRole('checkbox',{name:'Магический круг'}).check();
  assert.equal(await page.locator('#avatar').getAttribute('data-circle'),'true');
  await page.getByRole('button',{name:'Частицы',exact:true}).click();
- await page.getByLabel('Вид частиц').selectOption('sakura');
+ await page.getByRole('combobox',{name:'Вид частиц'}).selectOption('sakura');
  assert.equal(await page.locator('.avatar-particle').count(),8);
  await page.locator('#avatar-settings-close').click();
  await page.reload();
